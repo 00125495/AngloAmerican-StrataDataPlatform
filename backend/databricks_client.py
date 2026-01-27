@@ -149,6 +149,48 @@ class DatabricksClient:
             print(f"Error calling serving endpoint {endpoint_name}: {e}")
             raise
 
+    async def list_agents(self, user_token: Optional[str] = None) -> list[Endpoint]:
+        """List only agent endpoints from the workspace based on user access."""
+        if not self.is_configured() and not user_token:
+            return []
+            
+        try:
+            token = await self._get_token(user_token)
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.host}/api/2.0/serving-endpoints",
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+                response.raise_for_status()
+                data = response.json()
+                
+            agents = []
+            for ep in data.get("endpoints", []):
+                endpoint_type = self._detect_endpoint_type(ep)
+                if endpoint_type == EndpointType.agent:
+                    endpoint_name = ep.get("name", "")
+                    state = ep.get("state", {})
+                    ready = state.get("ready") == "READY"
+                    
+                    description = f"AI Agent: {endpoint_name}"
+                    if not ready:
+                        description += " (not ready)"
+                    
+                    agents.append(Endpoint(
+                        id=endpoint_name,
+                        name=endpoint_name,
+                        description=description,
+                        type=EndpointType.agent,
+                        isDefault=False
+                    ))
+                    
+            return agents
+            
+        except Exception as e:
+            print(f"Error fetching agents: {e}")
+            return []
+
     async def list_foundation_model_apis(self, user_token: Optional[str] = None) -> list[Endpoint]:
         if not self.is_configured() and not user_token:
             return []

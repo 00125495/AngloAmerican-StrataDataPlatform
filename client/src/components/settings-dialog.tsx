@@ -21,9 +21,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, Edit2, Check, X } from "lucide-react";
+import { Plus, Trash2, Edit2, Check, X, RefreshCw, Bot } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Endpoint, Domain, Site, Config, InsertDomain, InsertEndpoint } from "@shared/schema";
 
@@ -61,6 +61,12 @@ export function SettingsDialog({
   const [newEndpoint, setNewEndpoint] = useState<Partial<InsertEndpoint>>({});
   const [editingEndpointId, setEditingEndpointId] = useState<string | null>(null);
   const [editingEndpoint, setEditingEndpoint] = useState<Partial<InsertEndpoint>>({});
+
+  // Fetch available agents from workspace
+  const { data: workspaceAgents = [], isLoading: agentsLoading, refetch: refetchAgents } = useQuery<Endpoint[]>({
+    queryKey: ["/api/agents"],
+    enabled: open,
+  });
 
   useEffect(() => {
     setDefaultEndpointId(config.defaultEndpointId || "");
@@ -405,6 +411,80 @@ export function SettingsDialog({
           </TabsContent>
 
           <TabsContent value="endpoints" className="space-y-4 py-4">
+            {/* Browse Workspace Agents */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Bot className="h-4 w-4 text-emerald-500" />
+                      Workspace Agents
+                    </CardTitle>
+                    <CardDescription>Select from available agents in your Databricks workspace</CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => refetchAgents()}
+                    disabled={agentsLoading}
+                    data-testid="button-refresh-agents"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${agentsLoading ? "animate-spin" : ""}`} />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {agentsLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading agents...</p>
+                ) : workspaceAgents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No agents found. Make sure Databricks is configured and you have access to agent endpoints.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {workspaceAgents.map((agent) => {
+                      const isAlreadyAdded = endpoints.some((e) => e.id === agent.id);
+                      return (
+                        <div
+                          key={agent.id}
+                          className="flex items-center justify-between p-3 rounded-md border bg-card"
+                        >
+                          <div>
+                            <p className="font-medium text-sm">{agent.name}</p>
+                            <p className="text-xs text-muted-foreground">{agent.description}</p>
+                          </div>
+                          {isAlreadyAdded ? (
+                            <span className="text-xs text-muted-foreground px-2 py-1 bg-muted rounded">Added</span>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setNewEndpoint({
+                                  name: agent.name,
+                                  description: agent.description,
+                                  type: "agent",
+                                });
+                                toast({
+                                  title: "Agent selected",
+                                  description: `Click "Add Endpoint" to add ${agent.name}`,
+                                });
+                              }}
+                              data-testid={`button-select-agent-${agent.id}`}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Select
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Separator />
+
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Add Custom Endpoint</CardTitle>

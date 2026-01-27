@@ -99,6 +99,22 @@ async def get_endpoints(request: Request, domainId: str = Query(None)) -> list[E
     return endpoints
 
 
+@app.get("/api/agents")
+async def get_agents(request: Request) -> list[Endpoint]:
+    """List available agents from Databricks workspace based on user access."""
+    user_ctx = get_user_context(request)
+    
+    if user_ctx.access_token and databricks_client.host:
+        try:
+            agents = await databricks_client.list_agents(user_ctx.access_token)
+            return agents
+        except Exception as e:
+            print(f"Failed to fetch agents: {e}")
+    
+    all_endpoints = await storage.get_endpoints()
+    return [e for e in all_endpoints if e.type.value == "agent"]
+
+
 @app.post("/api/endpoints/refresh")
 async def refresh_endpoints(request: Request) -> list[Endpoint]:
     user_ctx = get_user_context(request)
