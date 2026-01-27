@@ -1,13 +1,46 @@
-node_modules
+# Dependencies
+node_modules/
+
+# Build artifacts
 dist/index.cjs
+
+# OS files
 .DS_Store
-server/public
-vite.config.ts.*
-*.tar.gz
+Thumbs.db
+
+# Replit specific
 .replit
 .upm
 .cache
-__pycache__
+.config
+replit.md
+replit_zip_error_log.txt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.python-version
+.venv/
+venv/
+
+# Attached assets from chat
 attached_assets/
-package.json
-package-lock.json
+
+# Temporary files
+*.tar.gz
+*.log
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Vite
+vite.config.ts.*
+server/public
+
+# Generated
+generated-icon.png
