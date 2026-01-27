@@ -24,6 +24,13 @@ The app features domain-based specialization and site-specific context:
 - Site context is automatically appended to system prompts when a specific site is selected
 - Conversations store the domainId and siteId for context preservation
 
+### Admin Configuration
+The Settings dialog includes admin tabs for managing domains and endpoints:
+- **Domains Tab**: Add, edit, or delete business domains with custom system prompts
+- **Endpoints Tab**: Add, edit, or delete custom AI endpoints (agents, foundation models, custom models)
+- Custom endpoints can be linked to specific domains for specialized functionality
+- Storage-based endpoints are merged with Databricks endpoints when both are available
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
