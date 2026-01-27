@@ -62,7 +62,7 @@ export function ConversationSidebar({
         <div className="p-3">
           <Button
             onClick={onNewConversation}
-            className="w-full justify-start gap-2"
+            className="w-full justify-start gap-2 bg-[#FF0000] hover:bg-[#CC0000] text-white"
             data-testid="button-new-conversation"
           >
             <Plus className="h-4 w-4" />
