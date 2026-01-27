@@ -237,15 +237,19 @@ async def chat(http_request: Request, request: ChatRequest) -> ChatResponse:
     user_token = user_ctx.access_token
     can_call_databricks = databricks_client.host and (user_token or databricks_client.is_configured())
     
+    print(f"[CHAT] Endpoint: {databricks_endpoint_name}, Host: {databricks_client.host}, HasUserToken: {bool(user_token)}, IsConfigured: {databricks_client.is_configured()}, CanCall: {can_call_databricks}")
+    
     if can_call_databricks:
         try:
+            print(f"[CHAT] Calling Databricks endpoint: {databricks_endpoint_name}")
             ai_response = await databricks_client.call_serving_endpoint(
                 databricks_endpoint_name, 
                 messages, 
                 user_token
             )
+            print(f"[CHAT] Databricks response received ({len(ai_response)} chars)")
         except Exception as e:
-            print(f"Databricks API error: {e}")
+            print(f"[CHAT] Databricks API error: {e}")
             ai_response = generate_mock_response(
                 request.message, endpoint_name,
                 domain.name if domain else "General",
