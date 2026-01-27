@@ -454,5 +454,3 @@ export function getStorage(): IStorage {
   }
   return storageInstance;
 }
-
-export const storage = new MemStorage();

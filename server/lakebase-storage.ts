@@ -309,7 +309,22 @@ export class LakeBaseStorage implements IStorage {
   }
 
   private escapeString(str: string): string {
-    return str.replace(/'/g, "''").replace(/\\/g, "\\\\");
+    if (str === null || str === undefined) return "";
+    return String(str)
+      .replace(/\\/g, "\\\\")
+      .replace(/'/g, "''")
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r")
+      .replace(/\t/g, "\\t")
+      .replace(/\0/g, "");
+  }
+
+  private escapeId(id: string): string {
+    if (!id || typeof id !== "string") return "";
+    if (!/^[a-zA-Z0-9-_]+$/.test(id)) {
+      throw new Error("Invalid ID format");
+    }
+    return id;
   }
 
   async getConversations(): Promise<Conversation[]> {
@@ -324,7 +339,7 @@ export class LakeBaseStorage implements IStorage {
     const conversations: Conversation[] = [];
     for (const row of rows as any[]) {
       const messagesOp = await this.session.executeStatement(
-        `SELECT * FROM messages WHERE conversation_id = '${row.id}' ORDER BY timestamp ASC`
+        `SELECT * FROM messages WHERE conversation_id = '${this.escapeId(row.id)}' ORDER BY timestamp ASC`
       );
       const messagesRows = await messagesOp.fetchAll();
       await messagesOp.close();
@@ -352,8 +367,9 @@ export class LakeBaseStorage implements IStorage {
   async getConversation(id: string): Promise<Conversation | undefined> {
     if (!this.session) throw new Error("Session not initialized");
 
+    const safeId = this.escapeId(id);
     const op = await this.session.executeStatement(
-      `SELECT * FROM conversations WHERE id = '${id}'`
+      `SELECT * FROM conversations WHERE id = '${safeId}'`
     );
     const rows = await op.fetchAll();
     await op.close();
@@ -362,7 +378,7 @@ export class LakeBaseStorage implements IStorage {
 
     const row = rows[0] as any;
     const messagesOp = await this.session.executeStatement(
-      `SELECT * FROM messages WHERE conversation_id = '${id}' ORDER BY timestamp ASC`
+      `SELECT * FROM messages WHERE conversation_id = '${safeId}' ORDER BY timestamp ASC`
     );
     const messagesRows = await messagesOp.fetchAll();
     await messagesOp.close();
@@ -390,8 +406,11 @@ export class LakeBaseStorage implements IStorage {
     const id = randomUUID();
     const now = Date.now();
 
+    const safeEndpointId = this.escapeId(endpointId);
+    const safeDomainId = domainId ? this.escapeId(domainId) : null;
+    const safeSiteId = siteId ? this.escapeId(siteId) : null;
     const op = await this.session.executeStatement(
-      `INSERT INTO conversations VALUES ('${id}', '${this.escapeString(title)}', '${endpointId}', ${domainId ? `'${domainId}'` : "NULL"}, ${siteId ? `'${siteId}'` : "NULL"}, ${now}, ${now})`
+      `INSERT INTO conversations VALUES ('${id}', '${this.escapeString(title)}', '${safeEndpointId}', ${safeDomainId ? `'${safeDomainId}'` : "NULL"}, ${safeSiteId ? `'${safeSiteId}'` : "NULL"}, ${now}, ${now})`
     );
     await op.close();
 
@@ -413,13 +432,15 @@ export class LakeBaseStorage implements IStorage {
     const id = randomUUID();
     const newMessage: Message = { ...message, id };
 
+    const safeConvId = this.escapeId(conversationId);
+    const safeRole = message.role === "user" || message.role === "assistant" || message.role === "system" ? message.role : "user";
     const op = await this.session.executeStatement(
-      `INSERT INTO messages VALUES ('${id}', '${conversationId}', '${message.role}', '${this.escapeString(message.content)}', ${message.timestamp})`
+      `INSERT INTO messages VALUES ('${id}', '${safeConvId}', '${safeRole}', '${this.escapeString(message.content)}', ${message.timestamp})`
     );
     await op.close();
 
     const updateOp = await this.session.executeStatement(
-      `UPDATE conversations SET updated_at = ${Date.now()} WHERE id = '${conversationId}'`
+      `UPDATE conversations SET updated_at = ${Date.now()} WHERE id = '${safeConvId}'`
     );
     await updateOp.close();
 
@@ -429,15 +450,16 @@ export class LakeBaseStorage implements IStorage {
   async updateConversation(id: string, updates: Partial<Conversation>): Promise<Conversation | undefined> {
     if (!this.session) throw new Error("Session not initialized");
 
+    const safeId = this.escapeId(id);
     const setClauses: string[] = [];
     if (updates.title) setClauses.push(`title = '${this.escapeString(updates.title)}'`);
-    if (updates.endpointId) setClauses.push(`endpoint_id = '${updates.endpointId}'`);
-    if (updates.domainId !== undefined) setClauses.push(`domain_id = ${updates.domainId ? `'${updates.domainId}'` : "NULL"}`);
-    if (updates.siteId !== undefined) setClauses.push(`site_id = ${updates.siteId ? `'${updates.siteId}'` : "NULL"}`);
+    if (updates.endpointId) setClauses.push(`endpoint_id = '${this.escapeId(updates.endpointId)}'`);
+    if (updates.domainId !== undefined) setClauses.push(`domain_id = ${updates.domainId ? `'${this.escapeId(updates.domainId)}'` : "NULL"}`);
+    if (updates.siteId !== undefined) setClauses.push(`site_id = ${updates.siteId ? `'${this.escapeId(updates.siteId)}'` : "NULL"}`);
     setClauses.push(`updated_at = ${Date.now()}`);
 
     const op = await this.session.executeStatement(
-      `UPDATE conversations SET ${setClauses.join(", ")} WHERE id = '${id}'`
+      `UPDATE conversations SET ${setClauses.join(", ")} WHERE id = '${safeId}'`
     );
     await op.close();
 
@@ -447,13 +469,14 @@ export class LakeBaseStorage implements IStorage {
   async deleteConversation(id: string): Promise<boolean> {
     if (!this.session) throw new Error("Session not initialized");
 
+    const safeId = this.escapeId(id);
     const msgOp = await this.session.executeStatement(
-      `DELETE FROM messages WHERE conversation_id = '${id}'`
+      `DELETE FROM messages WHERE conversation_id = '${safeId}'`
     );
     await msgOp.close();
 
     const op = await this.session.executeStatement(
-      `DELETE FROM conversations WHERE id = '${id}'`
+      `DELETE FROM conversations WHERE id = '${safeId}'`
     );
     await op.close();
 
@@ -492,6 +515,7 @@ export class LakeBaseStorage implements IStorage {
   async updateDomain(id: string, updates: Partial<InsertDomain>): Promise<Domain | undefined> {
     if (!this.session) throw new Error("Session not initialized");
 
+    const safeId = this.escapeId(id);
     const domain = this.memoryCache.domains.get(id);
     if (!domain) return undefined;
 
@@ -499,11 +523,11 @@ export class LakeBaseStorage implements IStorage {
     if (updates.name) setClauses.push(`name = '${this.escapeString(updates.name)}'`);
     if (updates.description !== undefined) setClauses.push(`description = '${this.escapeString(updates.description || "")}'`);
     if (updates.systemPrompt !== undefined) setClauses.push(`system_prompt = '${this.escapeString(updates.systemPrompt || "")}'`);
-    if (updates.icon !== undefined) setClauses.push(`icon = '${updates.icon || ""}'`);
+    if (updates.icon !== undefined) setClauses.push(`icon = '${this.escapeString(updates.icon || "")}'`);
 
     if (setClauses.length > 0) {
       const op = await this.session.executeStatement(
-        `UPDATE domains SET ${setClauses.join(", ")} WHERE id = '${id}'`
+        `UPDATE domains SET ${setClauses.join(", ")} WHERE id = '${safeId}'`
       );
       await op.close();
     }
@@ -516,7 +540,8 @@ export class LakeBaseStorage implements IStorage {
   async deleteDomain(id: string): Promise<boolean> {
     if (!this.session) throw new Error("Session not initialized");
 
-    const op = await this.session.executeStatement(`DELETE FROM domains WHERE id = '${id}'`);
+    const safeId = this.escapeId(id);
+    const op = await this.session.executeStatement(`DELETE FROM domains WHERE id = '${safeId}'`);
     await op.close();
 
     return this.memoryCache.domains.delete(id);
@@ -554,8 +579,10 @@ export class LakeBaseStorage implements IStorage {
     }
 
     const newEndpoint: Endpoint = { id, ...endpoint };
+    const safeType = ["foundation", "custom", "agent"].includes(endpoint.type) ? endpoint.type : "custom";
+    const safeDomainId = endpoint.domainId ? this.escapeId(endpoint.domainId) : null;
     const op = await this.session.executeStatement(
-      `INSERT INTO endpoints VALUES ('${id}', '${this.escapeString(endpoint.name)}', '${this.escapeString(endpoint.description || "")}', '${endpoint.type}', ${endpoint.isDefault || false}, ${endpoint.domainId ? `'${endpoint.domainId}'` : "NULL"})`
+      `INSERT INTO endpoints VALUES ('${id}', '${this.escapeString(endpoint.name)}', '${this.escapeString(endpoint.description || "")}', '${safeType}', ${endpoint.isDefault || false}, ${safeDomainId ? `'${safeDomainId}'` : "NULL"})`
     );
     await op.close();
 
@@ -566,19 +593,23 @@ export class LakeBaseStorage implements IStorage {
   async updateEndpoint(id: string, updates: Partial<InsertEndpoint>): Promise<Endpoint | undefined> {
     if (!this.session) throw new Error("Session not initialized");
 
+    const safeId = this.escapeId(id);
     const endpoint = this.memoryCache.endpoints.get(id);
     if (!endpoint) return undefined;
 
     const setClauses: string[] = [];
     if (updates.name) setClauses.push(`name = '${this.escapeString(updates.name)}'`);
     if (updates.description !== undefined) setClauses.push(`description = '${this.escapeString(updates.description || "")}'`);
-    if (updates.type) setClauses.push(`type = '${updates.type}'`);
+    if (updates.type) {
+      const safeType = ["foundation", "custom", "agent"].includes(updates.type) ? updates.type : "custom";
+      setClauses.push(`type = '${safeType}'`);
+    }
     if (updates.isDefault !== undefined) setClauses.push(`is_default = ${updates.isDefault}`);
-    if (updates.domainId !== undefined) setClauses.push(`domain_id = ${updates.domainId ? `'${updates.domainId}'` : "NULL"}`);
+    if (updates.domainId !== undefined) setClauses.push(`domain_id = ${updates.domainId ? `'${this.escapeId(updates.domainId)}'` : "NULL"}`);
 
     if (setClauses.length > 0) {
       const op = await this.session.executeStatement(
-        `UPDATE endpoints SET ${setClauses.join(", ")} WHERE id = '${id}'`
+        `UPDATE endpoints SET ${setClauses.join(", ")} WHERE id = '${safeId}'`
       );
       await op.close();
     }
@@ -591,7 +622,8 @@ export class LakeBaseStorage implements IStorage {
   async deleteEndpoint(id: string): Promise<boolean> {
     if (!this.session) throw new Error("Session not initialized");
 
-    const op = await this.session.executeStatement(`DELETE FROM endpoints WHERE id = '${id}'`);
+    const safeId = this.escapeId(id);
+    const op = await this.session.executeStatement(`DELETE FROM endpoints WHERE id = '${safeId}'`);
     await op.close();
 
     return this.memoryCache.endpoints.delete(id);

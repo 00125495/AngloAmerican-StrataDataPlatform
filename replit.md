@@ -45,12 +45,44 @@ Preferred communication style: Simple, everyday language.
 ## Databricks Deployment Notes
 
 When deployed as a Databricks App:
-- **Authentication**: Handled automatically by Databricks environment (no workspace URL configuration needed)
+- **Authentication**: Handled automatically by Databricks environment using OAuth 2.0 (dual-identity model)
+  - App Authorization: Each app gets a dedicated service principal with credentials auto-injected as `DATABRICKS_CLIENT_ID` and `DATABRICKS_CLIENT_SECRET`
+  - User Authorization (Preview): Apps can act on behalf of users with their Unity Catalog permissions
 - **Endpoints**: Dynamically fetched from `/api/2.0/serving-endpoints` based on user permissions
 - **Environment Variables**: 
   - `DATABRICKS_HOST` - Set automatically by Databricks Apps runtime
-  - `DATABRICKS_TOKEN` - Set automatically via OAuth/PAT
-- **LakeBase Integration**: Storage schema designed for easy migration to LakeBase tables
+  - `DATABRICKS_TOKEN` - Set automatically via OAuth/PAT (or use client_id/secret)
+
+## LakeBase Integration
+
+The app supports persistent storage via Databricks LakeBase (Unity Catalog tables).
+
+### Environment Variables for LakeBase
+Configure these to enable LakeBase storage:
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABRICKS_SERVER_HOSTNAME` | Yes | - | Databricks workspace hostname (e.g., `adb-xxxx.azuredatabricks.net`) |
+| `DATABRICKS_HTTP_PATH` | Yes | - | SQL warehouse HTTP path (e.g., `/sql/1.0/warehouses/xxxx`) |
+| `DATABRICKS_CATALOG` | No | `main` | Unity Catalog name |
+| `DATABRICKS_SCHEMA` | No | `anglo_strata` | Schema name for tables |
+| `DATABRICKS_TOKEN` | * | - | Personal Access Token (alternative to OAuth) |
+| `DATABRICKS_CLIENT_ID` | * | - | OAuth client ID (auto-set in Databricks Apps) |
+| `DATABRICKS_CLIENT_SECRET` | * | - | OAuth client secret (auto-set in Databricks Apps) |
+
+*Either TOKEN or CLIENT_ID+CLIENT_SECRET required for authentication
+
+### LakeBase Tables
+When connected, these tables are automatically created:
+- `conversations` - Chat conversation metadata
+- `messages` - Individual messages within conversations
+- `domains` - Business domain configurations
+- `sites` - Mining site definitions
+- `endpoints` - Custom AI endpoint definitions
+- `user_config` - User preferences
+
+### Fallback Behavior
+If LakeBase credentials are not configured or connection fails, the app automatically falls back to in-memory storage. This allows local development without a Databricks connection.
 
 ## System Architecture
 
