@@ -101,10 +101,18 @@ The frontend follows a component-based architecture with:
 - Custom hooks in `client/src/hooks/`
 
 ### Backend Architecture
-- **Runtime**: Node.js with Express 5
-- **Language**: TypeScript compiled with tsx
+- **Runtime**: Python 3.11 with FastAPI (production-ready for Databricks deployment)
+- **Development Server**: Node.js with Express 5 proxies API requests to FastAPI on port 8000
 - **API Design**: RESTful endpoints under `/api/` prefix
-- **Storage**: In-memory storage (MemStorage class) with interface for LakeBase migration
+- **Storage**: Dual-mode storage with automatic fallback
+  - LakeBase (Unity Catalog tables) when Databricks credentials available
+  - In-memory storage (MemStorage class) for local development
+
+Key backend files:
+- `backend/main.py` - FastAPI application with all API routes
+- `backend/models.py` - Pydantic models matching TypeScript types
+- `backend/storage.py` - In-memory storage implementation
+- `backend/lakebase_storage.py` - Databricks LakeBase storage implementation
 
 Key API endpoints:
 - `GET /api/endpoints` - List available AI endpoints (fetches from Databricks if credentials available)
@@ -113,16 +121,24 @@ Key API endpoints:
 - `GET/POST /api/conversations` - Manage conversations
 - `POST /api/chat` - Send messages and receive AI responses (with conversation context)
 - `GET/POST /api/config` - Application configuration
+- `POST /api/domains`, `POST /api/endpoints` - Admin CRUD operations
+
+### Development vs Production Architecture
+- **Development**: Node.js (port 5000) spawns FastAPI (port 8000), serves Vite HMR, proxies /api/* requests
+- **Production**: FastAPI serves everything directly (static files + API), optimized for Databricks Apps runtime
 
 ### Data Storage
-- **Current**: In-memory storage using Map collections
-- **Future**: LakeBase tables for persistent storage
-- **Validation**: Zod schemas in `shared/schema.ts` for type-safe data handling
+- **Current**: Dual-mode storage with automatic detection
+- **LakeBase**: Unity Catalog tables with databricks-sql-connector when credentials available
+- **Fallback**: In-memory storage using Python dicts for local development
+- **Validation**: Pydantic models in `backend/models.py` for type-safe data handling
 
-The storage interface (`IStorage`) abstracts data operations, allowing easy migration from memory to LakeBase when deployed.
+The storage interface abstracts data operations, automatically using LakeBase when Databricks credentials are detected.
 
 ### Shared Code
-- `shared/schema.ts` contains Zod schemas defining:
+- `shared/schema.ts` - TypeScript Zod schemas (frontend validation)
+- `backend/models.py` - Python Pydantic models (backend validation)
+Both define matching structures for:
   - Message structure (id, role, content, timestamp)
   - Conversation structure with message history
   - Endpoint definitions (foundation, custom, agent types)
@@ -162,16 +178,23 @@ CREATE TABLE user_config (
 
 ## External Dependencies
 
-### UI Framework
+### UI Framework (Frontend)
 - **Radix UI**: Comprehensive set of accessible, unstyled UI primitives
 - **shadcn/ui**: Pre-styled component collection using Radix + Tailwind
 - **Lucide React**: Icon library
 
-### Data & State
+### Data & State (Frontend)
 - **TanStack Query**: Server state management with caching
 - **Zod**: Runtime type validation
 
+### Backend (Python)
+- **FastAPI**: Modern, fast web framework for building APIs
+- **uvicorn**: ASGI server for production deployment
+- **Pydantic**: Data validation using Python type annotations
+- **databricks-sql-connector**: Connect to Databricks SQL warehouses and LakeBase
+- **httpx**: Async HTTP client for Databricks API calls
+
 ### Build & Development
 - **Vite**: Frontend build tool with HMR
-- **esbuild**: Server bundling for production
-- **TypeScript**: Type checking across the stack
+- **tsx**: TypeScript execution for Node.js development server
+- **TypeScript**: Type checking for frontend and development server
