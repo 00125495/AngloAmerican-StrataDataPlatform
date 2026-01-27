@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { chatRequestSchema, configSchema } from "@shared/schema";
+import { chatRequestSchema, configSchema, insertDomainSchema, insertEndpointSchema } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -14,6 +14,47 @@ export async function registerRoutes(
       res.json(domains);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch domains" });
+    }
+  });
+
+  app.post("/api/domains", async (req, res) => {
+    try {
+      const parsed = insertDomainSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid domain data", details: parsed.error.errors });
+      }
+      const domain = await storage.createDomain(parsed.data);
+      res.status(201).json(domain);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create domain" });
+    }
+  });
+
+  app.put("/api/domains/:id", async (req, res) => {
+    try {
+      const parsed = insertDomainSchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid domain data", details: parsed.error.errors });
+      }
+      const domain = await storage.updateDomain(req.params.id, parsed.data);
+      if (!domain) {
+        return res.status(404).json({ error: "Domain not found" });
+      }
+      res.json(domain);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update domain" });
+    }
+  });
+
+  app.delete("/api/domains/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteDomain(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Domain not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete domain" });
     }
   });
 
@@ -68,6 +109,47 @@ export async function registerRoutes(
       res.json(endpoints);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch endpoints" });
+    }
+  });
+
+  app.post("/api/endpoints", async (req, res) => {
+    try {
+      const parsed = insertEndpointSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid endpoint data", details: parsed.error.errors });
+      }
+      const endpoint = await storage.createEndpoint(parsed.data);
+      res.status(201).json(endpoint);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create endpoint" });
+    }
+  });
+
+  app.put("/api/endpoints/:id", async (req, res) => {
+    try {
+      const parsed = insertEndpointSchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid endpoint data", details: parsed.error.errors });
+      }
+      const endpoint = await storage.updateEndpoint(req.params.id, parsed.data);
+      if (!endpoint) {
+        return res.status(404).json({ error: "Endpoint not found" });
+      }
+      res.json(endpoint);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update endpoint" });
+    }
+  });
+
+  app.delete("/api/endpoints/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteEndpoint(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Endpoint not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete endpoint" });
     }
   });
 
