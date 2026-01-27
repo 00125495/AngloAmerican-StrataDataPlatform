@@ -51,15 +51,33 @@ class DatabricksClient:
         config = endpoint_data.get("config", {})
         served_entities = config.get("served_entities", [])
         
+        # Check task field - Databricks shows "Agent (Responses)" for agent endpoints
+        task = endpoint_data.get("task", "").lower()
+        if "agent" in task:
+            return EndpointType.agent
+        
+        # Check served entities for agent or external model markers
         for entity in served_entities:
             if entity.get("external_model"):
                 return EndpointType.foundation
-            if "agent" in entity.get("entity_name", "").lower():
+            entity_name = entity.get("entity_name", "").lower()
+            if "agent" in entity_name:
+                return EndpointType.agent
+            # Check entity version metadata
+            entity_version = entity.get("entity_version", "")
+            if entity_version and "agent" in str(entity_version).lower():
                 return EndpointType.agent
                 
+        # Check endpoint name for agent keyword
         if "agent" in name:
             return EndpointType.agent
+            
+        # Check for foundation model patterns
         if any(fm in name for fm in ["llama", "mixtral", "dbrx", "claude", "gpt", "gemini"]):
+            return EndpointType.foundation
+            
+        # Check route_optimized endpoints (often chat/LLM models)
+        if endpoint_data.get("route_optimized"):
             return EndpointType.foundation
             
         return EndpointType.custom

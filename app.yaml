@@ -9,3 +9,5 @@ command:
 env:
   - name: NODE_ENV
     value: production
+  - name: DATABRICKS_HOST
+    valueFrom: DATABRICKS_HOST

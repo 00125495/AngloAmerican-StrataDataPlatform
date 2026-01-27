@@ -104,15 +104,36 @@ async def get_agents(request: Request) -> list[Endpoint]:
     """List available agents from Databricks workspace based on user access."""
     user_ctx = get_user_context(request)
     
+    print(f"[DEBUG] Fetching agents - user_email: {user_ctx.email}, has_token: {bool(user_ctx.access_token)}, databricks_host: {databricks_client.host or 'not set'}")
+    
     if user_ctx.access_token and databricks_client.host:
         try:
             agents = await databricks_client.list_agents(user_ctx.access_token)
+            print(f"[DEBUG] Found {len(agents)} agents from Databricks")
             return agents
         except Exception as e:
-            print(f"Failed to fetch agents: {e}")
+            print(f"[DEBUG] Failed to fetch agents: {e}")
+    else:
+        print(f"[DEBUG] Skipping Databricks - access_token: {bool(user_ctx.access_token)}, host: {bool(databricks_client.host)}")
     
     all_endpoints = await storage.get_endpoints()
-    return [e for e in all_endpoints if e.type.value == "agent"]
+    agents = [e for e in all_endpoints if e.type.value == "agent"]
+    print(f"[DEBUG] Returning {len(agents)} agents from storage")
+    return agents
+
+
+@app.get("/api/debug/config")
+async def get_debug_config(request: Request) -> dict:
+    """Debug endpoint to check configuration status."""
+    user_ctx = get_user_context(request)
+    return {
+        "databricks_host": databricks_client.host or "not configured",
+        "databricks_configured": databricks_client.is_configured(),
+        "user_email": user_ctx.email,
+        "has_access_token": bool(user_ctx.access_token),
+        "is_authenticated": user_ctx.is_authenticated,
+        "storage_type": type(storage).__name__ if storage else "not initialized"
+    }
 
 
 @app.post("/api/endpoints/refresh")
