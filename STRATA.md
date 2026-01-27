@@ -53,6 +53,24 @@ When deployed as a Databricks App:
   - `DATABRICKS_HOST` - Set automatically by Databricks Apps runtime
   - `DATABRICKS_TOKEN` - Set automatically via OAuth/PAT (or use client_id/secret)
 
+### User Authorization Pattern
+The app uses Databricks' user authorization pattern to respect individual user permissions:
+
+**Headers from Databricks Proxy**:
+- `X-Forwarded-Email`: User's email address
+- `X-Forwarded-Access-Token`: User's OAuth access token
+
+**Implementation**:
+1. `backend/user_context.py` extracts user context from request headers
+2. User's token is used for listing/calling serving endpoints (respects Unity Catalog permissions)
+3. Service principal credentials are used for backend storage operations
+4. `/api/user` endpoint returns current user information for the UI
+
+**Token Priority**:
+- User token (from headers) is preferred for API calls when available
+- Falls back to service principal token when user token is not available
+- In development (Replit), mock endpoints are shown since no headers are provided
+
 ## LakeBase Integration
 
 The app supports persistent storage via Databricks LakeBase (Unity Catalog tables).
