@@ -289,6 +289,10 @@ if os.environ.get("NODE_ENV") == "production":
     if os.path.exists("dist/public"):
         app.mount("/assets", StaticFiles(directory="dist/public/assets"), name="assets")
         
+        @app.get("/favicon.png")
+        async def serve_favicon():
+            return FileResponse("dist/public/favicon.png")
+        
         @app.get("/{full_path:path}")
         async def serve_spa(full_path: str):
             if full_path.startswith("api/"):
