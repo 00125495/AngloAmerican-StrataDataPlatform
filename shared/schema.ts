@@ -44,7 +44,6 @@ export const chatResponseSchema = z.object({
 export type ChatResponse = z.infer<typeof chatResponseSchema>;
 
 export const configSchema = z.object({
-  databricksHost: z.string().url().optional(),
   defaultEndpointId: z.string().optional(),
   systemPrompt: z.string().optional(),
 });

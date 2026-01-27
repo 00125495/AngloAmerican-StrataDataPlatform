@@ -30,7 +30,7 @@ export class MemStorage implements IStorage {
     this.conversations = new Map();
     this.endpoints = new Map();
     this.config = {
-      systemPrompt: "You are a helpful AI assistant connected to Databricks. Provide clear, accurate, and helpful responses based on the conversation context.",
+      systemPrompt: "You are a helpful AI assistant for Anglo American. Provide clear, accurate, and helpful responses based on the conversation context.",
     };
 
     this.initializeDefaultEndpoints();
@@ -39,37 +39,37 @@ export class MemStorage implements IStorage {
   private initializeDefaultEndpoints() {
     const defaultEndpoints: Endpoint[] = [
       {
-        id: "foundation-gpt4",
+        id: "gpt-4-turbo",
         name: "GPT-4 Turbo",
         description: "OpenAI GPT-4 Turbo foundation model",
         type: "foundation",
         isDefault: true,
       },
       {
-        id: "foundation-claude",
+        id: "claude-3-5-sonnet",
         name: "Claude 3.5 Sonnet",
         description: "Anthropic Claude 3.5 Sonnet model",
         type: "foundation",
         isDefault: false,
       },
       {
-        id: "foundation-llama",
+        id: "llama-3-1-70b",
         name: "Llama 3.1 70B",
         description: "Meta Llama 3.1 70B Instruct",
         type: "foundation",
         isDefault: false,
       },
       {
-        id: "custom-sales",
-        name: "Sales Analyzer",
-        description: "Fine-tuned model for sales data analysis",
+        id: "geological-analyzer",
+        name: "Geological Analyzer",
+        description: "Fine-tuned model for geological survey analysis",
         type: "custom",
         isDefault: false,
       },
       {
-        id: "agent-data",
-        name: "Data Agent",
-        description: "Databricks Agent for data exploration",
+        id: "operations-agent",
+        name: "Operations Agent",
+        description: "Agent for mining operations data exploration",
         type: "agent",
         isDefault: false,
       },

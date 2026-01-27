@@ -10,6 +10,41 @@ export async function registerRoutes(
   
   app.get("/api/endpoints", async (_req, res) => {
     try {
+      const databricksHost = process.env.DATABRICKS_HOST;
+      const databricksToken = process.env.DATABRICKS_TOKEN;
+
+      if (databricksHost && databricksToken) {
+        try {
+          const response = await fetch(
+            `${databricksHost}/api/2.0/serving-endpoints`,
+            {
+              headers: {
+                "Authorization": `Bearer ${databricksToken}`,
+              },
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            const endpoints = (data.endpoints || []).map((ep: any) => ({
+              id: ep.name,
+              name: ep.name,
+              description: ep.config?.served_entities?.[0]?.entity_name || "Databricks serving endpoint",
+              type: ep.config?.served_entities?.[0]?.entity_name?.includes("agent") ? "agent" : 
+                    ep.config?.served_entities?.[0]?.foundation_model_name ? "foundation" : "custom",
+              isDefault: false,
+            }));
+            
+            if (endpoints.length > 0) {
+              endpoints[0].isDefault = true;
+              return res.json(endpoints);
+            }
+          }
+        } catch (apiError) {
+          console.log("Could not fetch Databricks endpoints, using defaults:", apiError);
+        }
+      }
+
       const endpoints = await storage.getEndpoints();
       res.json(endpoints);
     } catch (error) {
@@ -60,10 +95,7 @@ export async function registerRoutes(
       const { message, conversationId, endpointId } = parseResult.data;
 
       const endpoint = await storage.getEndpoint(endpointId);
-      if (!endpoint) {
-        return res.status(400).json({ error: "Endpoint not found" });
-      }
-
+      
       let conversation;
       if (conversationId) {
         conversation = await storage.getConversation(conversationId);
@@ -89,10 +121,11 @@ export async function registerRoutes(
         timestamp: Date.now(),
       });
 
-      const databricksHost = process.env.DATABRICKS_HOST || config.databricksHost;
+      const databricksHost = process.env.DATABRICKS_HOST;
       const databricksToken = process.env.DATABRICKS_TOKEN;
 
       let aiResponse: string;
+      const endpointName = endpoint?.name || endpointId;
 
       if (databricksHost && databricksToken) {
         try {
@@ -126,10 +159,10 @@ export async function registerRoutes(
                        "I received your message but couldn't generate a response.";
         } catch (apiError) {
           console.error("Databricks API error:", apiError);
-          aiResponse = generateMockResponse(message, endpoint.name, conversationContext);
+          aiResponse = generateMockResponse(message, endpointName, conversationContext);
         }
       } else {
-        aiResponse = generateMockResponse(message, endpoint.name, conversationContext);
+        aiResponse = generateMockResponse(message, endpointName, conversationContext);
       }
 
       const assistantMessage = await storage.addMessage(conversation.id, {
@@ -185,11 +218,11 @@ function generateMockResponse(
     : "";
 
   const responses = [
-    `Thank you for your question! As ${endpointName}, I'm here to help you with your data and AI needs on Databricks.\n\nYou asked: "${message}"\n\nIn a production environment, I would connect to your Databricks serving endpoint and provide real-time analysis and insights. For now, I'm demonstrating the conversation flow with context management.${contextInfo}`,
+    `Thank you for your question! As ${endpointName}, I'm here to help you explore your data layers.\n\nYou asked: "${message}"\n\nIn production, this would connect to your Databricks serving endpoint with your user credentials, automatically fetching models you have access to.${contextInfo}`,
     
-    `Great question! Using ${endpointName}, I can help analyze your data and provide actionable insights.\n\nRegarding "${message}":\n\nThis interface demonstrates how conversation context is passed to Databricks agents. Each message you send includes the full conversation history, allowing for coherent multi-turn interactions.${contextInfo}`,
+    `Great question! Using ${endpointName}, I can help analyze your data and provide actionable insights.\n\nRegarding "${message}":\n\nWhen deployed as a Databricks App, authentication is handled automatically and this interface will show only the serving endpoints you have permission to access.${contextInfo}`,
     
-    `Hello! I'm responding as ${endpointName}.\n\nYou mentioned: "${message}"\n\nIn production, this would trigger a call to your Databricks serving endpoint with the full conversation context. The response would be streamed back in real-time for a smooth user experience.${contextInfo}`,
+    `Hello! I'm responding as ${endpointName}.\n\nYou mentioned: "${message}"\n\nThis demo shows how Anglo Strata manages conversation context. In production, your chat history would be stored in LakeBase tables for persistence and analytics.${contextInfo}`,
   ];
 
   return responses[Math.floor(Math.random() * responses.length)];
