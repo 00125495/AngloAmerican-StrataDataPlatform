@@ -193,42 +193,90 @@ class LakebaseSDKStorage(IStorage):
                 logger.error(f"Token refresh failed: {e}")
 
     async def _create_tables(self):
-        """Create database tables if they don't exist."""
-        async with self.engine.begin() as conn:
-            await conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS conversations (
-                    id TEXT PRIMARY KEY,
-                    title TEXT NOT NULL,
-                    endpoint_id TEXT,
-                    domain_id TEXT,
-                    site_id TEXT,
-                    user_email TEXT,
-                    created_at BIGINT NOT NULL,
-                    updated_at BIGINT NOT NULL
-                )
-            """))
+        """Create database tables if they don't exist, or verify they exist."""
+        try:
+            async with self.engine.begin() as conn:
+                # First check if tables already exist
+                result = await conn.execute(text("""
+                    SELECT table_name FROM information_schema.tables 
+                    WHERE table_schema = 'public' AND table_name IN ('conversations', 'messages')
+                """))
+                existing_tables = {row[0] for row in result.fetchall()}
+                
+                if 'conversations' in existing_tables and 'messages' in existing_tables:
+                    print("[LAKEBASE] Tables already exist, skipping creation")
+                    logger.info("Database tables already exist")
+                    return
+                
+                # Try to create tables if they don't exist
+                print("[LAKEBASE] Creating database tables...")
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS conversations (
+                        id TEXT PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        endpoint_id TEXT,
+                        domain_id TEXT,
+                        site_id TEXT,
+                        user_email TEXT,
+                        created_at BIGINT NOT NULL,
+                        updated_at BIGINT NOT NULL
+                    )
+                """))
+                
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS messages (
+                        id TEXT PRIMARY KEY,
+                        conversation_id TEXT NOT NULL,
+                        role TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        timestamp BIGINT NOT NULL
+                    )
+                """))
+                
+                await conn.execute(text("""
+                    CREATE INDEX IF NOT EXISTS idx_conversations_user_email 
+                    ON conversations(user_email)
+                """))
+                
+                await conn.execute(text("""
+                    CREATE INDEX IF NOT EXISTS idx_messages_conversation_id 
+                    ON messages(conversation_id)
+                """))
+                
+            logger.info("Database tables created/verified")
             
-            await conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS messages (
-                    id TEXT PRIMARY KEY,
-                    conversation_id TEXT NOT NULL,
-                    role TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    timestamp BIGINT NOT NULL
-                )
-            """))
-            
-            await conn.execute(text("""
-                CREATE INDEX IF NOT EXISTS idx_conversations_user_email 
-                ON conversations(user_email)
-            """))
-            
-            await conn.execute(text("""
-                CREATE INDEX IF NOT EXISTS idx_messages_conversation_id 
-                ON messages(conversation_id)
-            """))
-            
-        logger.info("Database tables created/verified")
+        except Exception as e:
+            error_msg = str(e).lower()
+            if "permission denied" in error_msg or "insufficient privilege" in error_msg:
+                print("[LAKEBASE] No CREATE permission - please create tables manually in Databricks SQL Editor:")
+                print("""
+-- Run this SQL in Databricks SQL Editor:
+CREATE TABLE IF NOT EXISTS conversations (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    endpoint_id TEXT,
+    domain_id TEXT,
+    site_id TEXT,
+    user_email TEXT,
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    timestamp BIGINT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversations_user_email ON conversations(user_email);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
+                """)
+                # Re-raise to trigger fallback to in-memory storage
+                raise
+            else:
+                raise
 
     async def _initialize_defaults(self):
         """Initialize default domains, sites, and endpoints in memory."""
