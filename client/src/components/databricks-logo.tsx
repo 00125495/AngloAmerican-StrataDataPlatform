@@ -1,18 +1,12 @@
+import angloLogo from "@assets/Screenshot_2026-01-27_at_07.04.45_1769497521466.png";
+
 export function AngloAmericanLogo({ className = "w-10 h-10" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 100 100" className={className} fill="none">
-      <path
-        d="M50 5C25 5 8 30 8 55C8 80 25 95 50 95C75 95 92 80 92 55C92 30 75 5 50 5Z"
-        stroke="#031795"
-        strokeWidth="6"
-        fill="none"
-      />
-      <path
-        d="M50 25L75 70H25L50 25Z"
-        fill="#FF0000"
-      />
-      <circle cx="50" cy="55" r="8" fill="white" />
-    </svg>
+    <img 
+      src={angloLogo} 
+      alt="Anglo American" 
+      className={className}
+    />
   );
 }
 
