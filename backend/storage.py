@@ -328,8 +328,23 @@ storage_instance: Optional[IStorage] = None
 async def initialize_storage() -> IStorage:
     global storage_instance
     
-    from .lakebase_storage import create_lakebase_config, LakeBaseStorage
+    # Try PostgreSQL first (Databricks Apps with PG* env vars)
+    from .postgres_storage import get_postgres_url, PostgresStorage
+    postgres_url = get_postgres_url()
+    if postgres_url:
+        try:
+            postgres_storage = PostgresStorage(postgres_url)
+            await postgres_storage.initialize()
+            storage_instance = postgres_storage
+            print("Using PostgreSQL storage (Databricks)")
+            await storage_instance.refresh_endpoints_from_databricks()
+            return storage_instance
+        except Exception as e:
+            print(f"Failed to initialize PostgreSQL storage: {e}")
+            print("Falling back to other storage options")
     
+    # Try LakeBase (Databricks SQL warehouse)
+    from .lakebase_storage import create_lakebase_config, LakeBaseStorage
     lakebase_config = create_lakebase_config()
     if lakebase_config:
         try:
