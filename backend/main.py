@@ -65,49 +65,16 @@ async def get_sites() -> list[Site]:
 
 @app.get("/api/endpoints")
 async def get_endpoints(domainId: str = Query(None)) -> list[Endpoint]:
-    databricks_host = os.environ.get("DATABRICKS_HOST")
-    databricks_token = os.environ.get("DATABRICKS_TOKEN")
+    endpoints = await storage.get_endpoints(domainId)
+    if endpoints and not any(e.isDefault for e in endpoints):
+        endpoints[0] = endpoints[0].model_copy(update={"isDefault": True})
+    return endpoints
 
-    storage_endpoints = await storage.get_endpoints(domainId)
-    databricks_endpoints = []
 
-    if databricks_host and databricks_token:
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{databricks_host}/api/2.0/serving-endpoints",
-                    headers={"Authorization": f"Bearer {databricks_token}"}
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    for ep in data.get("endpoints", []):
-                        entity_name = ""
-                        foundation_model = ""
-                        if ep.get("config", {}).get("served_entities"):
-                            entity_name = ep["config"]["served_entities"][0].get("entity_name", "")
-                            foundation_model = ep["config"]["served_entities"][0].get("foundation_model_name", "")
-                        
-                        ep_type = EndpointType.custom
-                        if "agent" in entity_name.lower():
-                            ep_type = EndpointType.agent
-                        elif foundation_model:
-                            ep_type = EndpointType.foundation
-                        
-                        databricks_endpoints.append(Endpoint(
-                            id=f"databricks-{ep['name']}",
-                            name=ep["name"],
-                            description=entity_name or "Databricks serving endpoint",
-                            type=ep_type,
-                            isDefault=False
-                        ))
-        except Exception as e:
-            print(f"Could not fetch Databricks endpoints: {e}")
-
-    all_endpoints = storage_endpoints + databricks_endpoints
-    if all_endpoints and not any(e.isDefault for e in all_endpoints):
-        all_endpoints[0] = all_endpoints[0].model_copy(update={"isDefault": True})
-    
-    return all_endpoints
+@app.post("/api/endpoints/refresh")
+async def refresh_endpoints() -> list[Endpoint]:
+    endpoints = await storage.refresh_endpoints_from_databricks()
+    return endpoints
 
 
 @app.post("/api/endpoints", status_code=201)

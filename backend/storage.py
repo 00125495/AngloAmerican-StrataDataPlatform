@@ -10,6 +10,10 @@ import time
 
 class IStorage(ABC):
     @abstractmethod
+    async def refresh_endpoints_from_databricks(self) -> list[Endpoint]:
+        pass
+
+    @abstractmethod
     async def get_conversations(self) -> list[Conversation]:
         pass
 
@@ -100,7 +104,32 @@ class MemStorage(IStorage):
         self.sites: dict[str, Site] = {}
         self.endpoints: dict[str, Endpoint] = {}
         self.config = Config()
+        self._databricks_endpoints_loaded = False
         self._initialize_defaults()
+
+    async def refresh_endpoints_from_databricks(self) -> list[Endpoint]:
+        from .databricks_client import databricks_client
+        
+        if not databricks_client.is_configured():
+            print("Databricks not configured, keeping default endpoints")
+            return list(self.endpoints.values())
+        
+        try:
+            db_endpoints = await databricks_client.list_serving_endpoints()
+            
+            if db_endpoints:
+                self.endpoints.clear()
+                for endpoint in db_endpoints:
+                    self.endpoints[endpoint.id] = endpoint
+                self._databricks_endpoints_loaded = True
+                print(f"Loaded {len(db_endpoints)} endpoints from Databricks")
+            else:
+                print("No endpoints from Databricks, keeping defaults")
+                
+        except Exception as e:
+            print(f"Error refreshing endpoints from Databricks: {e}")
+            
+        return list(self.endpoints.values())
 
     def _initialize_defaults(self):
         default_domains = [
@@ -306,13 +335,16 @@ async def initialize_storage() -> IStorage:
             await lakebase_storage.initialize()
             storage_instance = lakebase_storage
             print("Using LakeBase storage (Databricks)")
-            return storage_instance
         except Exception as e:
             print(f"Failed to initialize LakeBase storage: {e}")
             print("Falling back to in-memory storage")
+            storage_instance = MemStorage()
+    else:
+        storage_instance = MemStorage()
+        print("Using in-memory storage")
     
-    storage_instance = MemStorage()
-    print("Using in-memory storage")
+    await storage_instance.refresh_endpoints_from_databricks()
+    
     return storage_instance
 
 

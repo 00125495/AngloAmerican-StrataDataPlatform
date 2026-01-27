@@ -437,6 +437,29 @@ class LakeBaseStorage(IStorage):
         finally:
             cursor.close()
 
+    async def refresh_endpoints_from_databricks(self) -> list[Endpoint]:
+        from .databricks_client import databricks_client
+        
+        if not databricks_client.is_configured():
+            print("Databricks not configured, keeping cached endpoints")
+            return list(self.memory_cache["endpoints"].values())
+        
+        try:
+            db_endpoints = await databricks_client.list_serving_endpoints()
+            
+            if db_endpoints:
+                self.memory_cache["endpoints"].clear()
+                for endpoint in db_endpoints:
+                    self.memory_cache["endpoints"][endpoint.id] = endpoint
+                print(f"Loaded {len(db_endpoints)} endpoints from Databricks")
+            else:
+                print("No endpoints from Databricks, keeping cached endpoints")
+                
+        except Exception as e:
+            print(f"Error refreshing endpoints from Databricks: {e}")
+            
+        return list(self.memory_cache["endpoints"].values())
+
     async def get_sites(self) -> list[Site]:
         return list(self.memory_cache["sites"].values())
 
