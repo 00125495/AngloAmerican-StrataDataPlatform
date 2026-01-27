@@ -6,24 +6,39 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ConversationSidebar } from "@/components/conversation-sidebar";
 import { ChatMessage, TypingIndicator } from "@/components/chat-message";
 import { ChatInput } from "@/components/chat-input";
+import { DomainSelector } from "@/components/domain-selector";
 import { EndpointSelector } from "@/components/endpoint-selector";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Conversation, Endpoint, Config } from "@shared/schema";
+import type { Conversation, Endpoint, Domain, Config } from "@shared/schema";
 
 export default function Chat() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [selectedEndpoint, setSelectedEndpoint] = useState<Endpoint | null>(null);
+  const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
+  const { data: domains = [], isLoading: domainsLoading } = useQuery<Domain[]>({
+    queryKey: ["/api/domains"],
+  });
+
   const { data: endpoints = [], isLoading: endpointsLoading } = useQuery<Endpoint[]>({
-    queryKey: ["/api/endpoints"],
+    queryKey: ["/api/endpoints", selectedDomain?.id],
+    queryFn: async () => {
+      const url = selectedDomain?.id 
+        ? `/api/endpoints?domainId=${selectedDomain.id}`
+        : "/api/endpoints";
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to fetch endpoints");
+      return response.json();
+    },
+    enabled: true,
   });
 
   const { data: conversations = [], isLoading: conversationsLoading } = useQuery<Conversation[]>({
@@ -37,6 +52,13 @@ export default function Chat() {
   const activeConversation = conversations.find(
     (c) => c.id === activeConversationId
   );
+
+  useEffect(() => {
+    if (domains.length > 0 && !selectedDomain) {
+      const genericDomain = domains.find((d) => d.id === "generic");
+      setSelectedDomain(genericDomain || domains[0]);
+    }
+  }, [domains, selectedDomain]);
 
   useEffect(() => {
     if (endpoints.length > 0 && !selectedEndpoint) {
@@ -57,6 +79,20 @@ export default function Chat() {
   }, [endpoints, selectedEndpoint, config.defaultEndpointId]);
 
   useEffect(() => {
+    if (selectedDomain && endpoints.length > 0) {
+      const domainAgent = endpoints.find(
+        (e) => e.domainId === selectedDomain.id && e.type === "agent"
+      );
+      if (domainAgent) {
+        setSelectedEndpoint(domainAgent);
+      } else if (!endpoints.find((e) => e.id === selectedEndpoint?.id)) {
+        const defaultEp = endpoints.find((e) => e.isDefault) || endpoints[0];
+        setSelectedEndpoint(defaultEp);
+      }
+    }
+  }, [selectedDomain, endpoints]);
+
+  useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
@@ -70,6 +106,7 @@ export default function Chat() {
         message,
         conversationId: activeConversationId || undefined,
         endpointId: selectedEndpoint.id,
+        domainId: selectedDomain?.id,
       });
       return response.json();
     },
@@ -142,7 +179,12 @@ export default function Chat() {
     setActiveConversationId(null);
   }, []);
 
-  const isLoading = endpointsLoading || configLoading;
+  const handleDomainChange = useCallback((domain: Domain) => {
+    setSelectedDomain(domain);
+    setSelectedEndpoint(null);
+  }, []);
+
+  const isLoading = endpointsLoading || configLoading || domainsLoading;
 
   return (
     <>
@@ -161,14 +203,25 @@ export default function Chat() {
           <div className="flex flex-wrap items-center gap-3">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             {isLoading ? (
-              <Skeleton className="h-9 w-[200px]" />
+              <>
+                <Skeleton className="h-9 w-[180px]" />
+                <Skeleton className="h-9 w-[200px]" />
+              </>
             ) : (
-              <EndpointSelector
-                endpoints={endpoints}
-                selectedEndpoint={selectedEndpoint}
-                onSelect={setSelectedEndpoint}
-                disabled={sendMessageMutation.isPending}
-              />
+              <>
+                <DomainSelector
+                  domains={domains}
+                  selectedDomain={selectedDomain}
+                  onSelect={handleDomainChange}
+                  disabled={sendMessageMutation.isPending}
+                />
+                <EndpointSelector
+                  endpoints={endpoints}
+                  selectedEndpoint={selectedEndpoint}
+                  onSelect={setSelectedEndpoint}
+                  disabled={sendMessageMutation.isPending}
+                />
+              </>
             )}
           </div>
           <ThemeToggle />
@@ -184,7 +237,10 @@ export default function Chat() {
               </div>
             </div>
           ) : !activeConversation && !isTyping ? (
-            <EmptyState onSuggestionClick={handleSendMessage} />
+            <EmptyState 
+              onSuggestionClick={handleSendMessage} 
+              selectedDomain={selectedDomain}
+            />
           ) : (
             <ScrollArea
               ref={scrollRef}
@@ -208,8 +264,8 @@ export default function Chat() {
                 isLoading
                   ? "Loading..."
                   : selectedEndpoint
-                  ? `Message ${selectedEndpoint.name}...`
-                  : "Select an endpoint to start chatting..."
+                  ? `Message ${selectedDomain?.name || "AI Assistant"}...`
+                  : "Select a domain and model to start chatting..."
               }
             />
           </div>

@@ -1,5 +1,6 @@
 import { Sparkles, MessageSquare, Database } from "lucide-react";
 import { AngloStrataIcon } from "@/components/databricks-logo";
+import type { Domain } from "@shared/schema";
 
 const features = [
   {
@@ -9,8 +10,8 @@ const features = [
   },
   {
     icon: AngloStrataIcon,
-    title: "Multiple Models",
-    description: "Access all serving endpoints based on your permissions",
+    title: "Domain Specialists",
+    description: "AI agents tailored for specific business areas",
   },
   {
     icon: Database,
@@ -19,18 +20,61 @@ const features = [
   },
 ];
 
-const suggestions = [
-  "Analyze the production data from last quarter",
-  "What are the key insights from recent operations?",
-  "Generate a summary of geological survey data",
-  "Help me understand the ore processing metrics",
-];
+const domainSuggestions: Record<string, string[]> = {
+  "generic": [
+    "What capabilities does Anglo Strata offer?",
+    "Help me understand mining operations data",
+    "What insights can you provide from our data?",
+    "How can AI help improve our processes?",
+  ],
+  "mining-ops": [
+    "Analyze production metrics from the last shift",
+    "What's the current equipment availability rate?",
+    "Show safety incident trends this month",
+    "Compare production targets vs actual output",
+  ],
+  "geological": [
+    "Summarize the latest drill hole assay results",
+    "What's the current ore grade estimate?",
+    "Analyze geological mapping data for Block A",
+    "Compare exploration targets by mineral potential",
+  ],
+  "processing": [
+    "What's the current plant recovery rate?",
+    "Analyze throughput bottlenecks this week",
+    "Compare grinding efficiency across circuits",
+    "Show metallurgical balance for the past month",
+  ],
+  "sustainability": [
+    "What are our current carbon emissions?",
+    "Analyze water usage efficiency trends",
+    "Show progress on ESG commitments",
+    "Compare environmental KPIs across sites",
+  ],
+  "supply-chain": [
+    "What's the current inventory status?",
+    "Analyze vendor delivery performance",
+    "Show procurement cost trends",
+    "Compare logistics efficiency by route",
+  ],
+  "finance": [
+    "Analyze cost per tonne this quarter",
+    "What's the capital expenditure status?",
+    "Compare budget variance by department",
+    "Show financial performance metrics",
+  ],
+};
 
 interface EmptyStateProps {
   onSuggestionClick: (suggestion: string) => void;
+  selectedDomain?: Domain | null;
 }
 
-export function EmptyState({ onSuggestionClick }: EmptyStateProps) {
+export function EmptyState({ onSuggestionClick, selectedDomain }: EmptyStateProps) {
+  const suggestions = selectedDomain?.id 
+    ? (domainSuggestions[selectedDomain.id] || domainSuggestions["generic"])
+    : domainSuggestions["generic"];
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-8 max-w-3xl mx-auto">
       <div className="flex items-center justify-center w-20 h-20 mb-6">
@@ -41,7 +85,9 @@ export function EmptyState({ onSuggestionClick }: EmptyStateProps) {
         Welcome to Anglo <span className="text-[#FF0000]">Strata</span>
       </h1>
       <p className="text-muted-foreground text-center mb-8 max-w-md">
-        Mining intelligence through AI-powered conversations. Select a model and start chatting.
+        {selectedDomain && selectedDomain.id !== "generic" 
+          ? `${selectedDomain.name} - ${selectedDomain.description}`
+          : "Mining intelligence through AI-powered conversations. Select a domain and start chatting."}
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10 w-full">
@@ -64,7 +110,11 @@ export function EmptyState({ onSuggestionClick }: EmptyStateProps) {
       <div className="w-full">
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="h-4 w-4 text-[#FF0000]" />
-          <span className="text-sm font-medium">Try asking</span>
+          <span className="text-sm font-medium">
+            {selectedDomain && selectedDomain.id !== "generic" 
+              ? `Try asking about ${selectedDomain.name.toLowerCase()}`
+              : "Try asking"}
+          </span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {suggestions.map((suggestion) => (

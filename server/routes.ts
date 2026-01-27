@@ -8,8 +8,18 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
-  app.get("/api/endpoints", async (_req, res) => {
+  app.get("/api/domains", async (_req, res) => {
     try {
+      const domains = await storage.getDomains();
+      res.json(domains);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch domains" });
+    }
+  });
+
+  app.get("/api/endpoints", async (req, res) => {
+    try {
+      const domainId = req.query.domainId as string | undefined;
       const databricksHost = process.env.DATABRICKS_HOST;
       const databricksToken = process.env.DATABRICKS_TOKEN;
 
@@ -45,7 +55,7 @@ export async function registerRoutes(
         }
       }
 
-      const endpoints = await storage.getEndpoints();
+      const endpoints = await storage.getEndpoints(domainId);
       res.json(endpoints);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch endpoints" });
@@ -92,9 +102,10 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid request", details: parseResult.error });
       }
 
-      const { message, conversationId, endpointId } = parseResult.data;
+      const { message, conversationId, endpointId, domainId } = parseResult.data;
 
       const endpoint = await storage.getEndpoint(endpointId);
+      const domain = domainId ? await storage.getDomain(domainId) : await storage.getDomain("generic");
       
       let conversation;
       if (conversationId) {
@@ -105,11 +116,11 @@ export async function registerRoutes(
       } else {
         conversation = await storage.createConversation(
           endpointId,
-          message.slice(0, 50) + (message.length > 50 ? "..." : "")
+          message.slice(0, 50) + (message.length > 50 ? "..." : ""),
+          domainId
         );
       }
 
-      const config = await storage.getConfig();
       const conversationContext = conversation.messages.map((msg) => ({
         role: msg.role,
         content: msg.content,
@@ -123,6 +134,7 @@ export async function registerRoutes(
 
       const databricksHost = process.env.DATABRICKS_HOST;
       const databricksToken = process.env.DATABRICKS_TOKEN;
+      const systemPrompt = domain?.systemPrompt || "You are a helpful AI assistant.";
 
       let aiResponse: string;
       const endpointName = endpoint?.name || endpointId;
@@ -131,7 +143,7 @@ export async function registerRoutes(
         try {
           const requestBody = {
             messages: [
-              { role: "system", content: config.systemPrompt || "You are a helpful AI assistant." },
+              { role: "system", content: systemPrompt },
               ...conversationContext,
               { role: "user", content: message },
             ],
@@ -159,10 +171,10 @@ export async function registerRoutes(
                        "I received your message but couldn't generate a response.";
         } catch (apiError) {
           console.error("Databricks API error:", apiError);
-          aiResponse = generateMockResponse(message, endpointName, conversationContext);
+          aiResponse = generateMockResponse(message, endpointName, domain?.name || "General", conversationContext);
         }
       } else {
-        aiResponse = generateMockResponse(message, endpointName, conversationContext);
+        aiResponse = generateMockResponse(message, endpointName, domain?.name || "General", conversationContext);
       }
 
       const assistantMessage = await storage.addMessage(conversation.id, {
@@ -210,19 +222,37 @@ export async function registerRoutes(
 function generateMockResponse(
   message: string,
   endpointName: string,
+  domainName: string,
   context: Array<{ role: string; content: string }>
 ): string {
   const messageCount = context.length;
   const contextInfo = messageCount > 0 
-    ? `\n\n*Note: I have access to ${messageCount} previous messages in our conversation for context.*`
+    ? `\n\n*I have access to ${messageCount} previous messages in our conversation for context.*`
     : "";
 
-  const responses = [
-    `Thank you for your question! As ${endpointName}, I'm here to help you explore your data layers.\n\nYou asked: "${message}"\n\nIn production, this would connect to your Databricks serving endpoint with your user credentials, automatically fetching models you have access to.${contextInfo}`,
-    
-    `Great question! Using ${endpointName}, I can help analyze your data and provide actionable insights.\n\nRegarding "${message}":\n\nWhen deployed as a Databricks App, authentication is handled automatically and this interface will show only the serving endpoints you have permission to access.${contextInfo}`,
-    
-    `Hello! I'm responding as ${endpointName}.\n\nYou mentioned: "${message}"\n\nThis demo shows how Anglo Strata manages conversation context. In production, your chat history would be stored in LakeBase tables for persistence and analytics.${contextInfo}`,
+  const domainResponses: Record<string, string[]> = {
+    "Mining Operations": [
+      `As your Mining Operations assistant, I can help analyze production data and operational metrics.\n\nRegarding "${message}":\n\nIn a production environment, I would connect to real-time operational data from your mining sites, including equipment telemetry, shift reports, and safety metrics. I can help optimize production schedules, identify bottlenecks, and track KPIs.${contextInfo}`,
+    ],
+    "Geological Services": [
+      `As your Geological Services assistant, I specialize in geological data analysis.\n\nRegarding "${message}":\n\nI can assist with ore body modeling, drill hole analysis, grade estimation, and geological mapping. In production, I would have access to your geological databases and exploration data to provide data-driven insights.${contextInfo}`,
+    ],
+    "Mineral Processing": [
+      `As your Mineral Processing specialist, I focus on plant optimization.\n\nRegarding "${message}":\n\nI can help analyze throughput rates, recovery efficiencies, and processing parameters. In production, I would integrate with plant control systems to provide real-time optimization recommendations.${contextInfo}`,
+    ],
+    "Sustainability & ESG": [
+      `As your Sustainability & ESG advisor, I help with environmental and social governance.\n\nRegarding "${message}":\n\nI can assist with emissions tracking, water usage analysis, community impact assessments, and ESG reporting. In production, I would connect to your sustainability monitoring systems.${contextInfo}`,
+    ],
+    "Supply Chain": [
+      `As your Supply Chain analyst, I optimize logistics and procurement.\n\nRegarding "${message}":\n\nI can help with inventory optimization, vendor performance analysis, logistics routing, and procurement analytics. In production, I would integrate with your ERP and supply chain systems.${contextInfo}`,
+    ],
+    "Finance & Analytics": [
+      `As your Finance & Analytics assistant, I focus on financial performance.\n\nRegarding "${message}":\n\nI can help with cost analysis, budget forecasting, capital allocation, and financial KPIs. In production, I would connect to your financial systems for real-time insights.${contextInfo}`,
+    ],
+  };
+
+  const responses = domainResponses[domainName] || [
+    `Thank you for your question! Using ${endpointName}, I'm here to help with your ${domainName} queries.\n\nYou asked: "${message}"\n\nIn production, this would connect to your Databricks serving endpoint with domain-specific context and knowledge. The response would be tailored to your specific business area within Anglo American.${contextInfo}`,
   ];
 
   return responses[Math.floor(Math.random() * responses.length)];

@@ -3,18 +3,22 @@ import type {
   Conversation,
   Message,
   Endpoint,
+  Domain,
   Config,
 } from "@shared/schema";
 
 export interface IStorage {
   getConversations(): Promise<Conversation[]>;
   getConversation(id: string): Promise<Conversation | undefined>;
-  createConversation(endpointId: string, title: string): Promise<Conversation>;
+  createConversation(endpointId: string, title: string, domainId?: string): Promise<Conversation>;
   addMessage(conversationId: string, message: Omit<Message, "id">): Promise<Message>;
   updateConversation(id: string, updates: Partial<Conversation>): Promise<Conversation | undefined>;
   deleteConversation(id: string): Promise<boolean>;
   
-  getEndpoints(): Promise<Endpoint[]>;
+  getDomains(): Promise<Domain[]>;
+  getDomain(id: string): Promise<Domain | undefined>;
+  
+  getEndpoints(domainId?: string): Promise<Endpoint[]>;
   getEndpoint(id: string): Promise<Endpoint | undefined>;
   
   getConfig(): Promise<Config>;
@@ -24,16 +28,77 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private conversations: Map<string, Conversation>;
   private endpoints: Map<string, Endpoint>;
+  private domains: Map<string, Domain>;
   private config: Config;
 
   constructor() {
     this.conversations = new Map();
     this.endpoints = new Map();
+    this.domains = new Map();
     this.config = {
       systemPrompt: "You are a helpful AI assistant for Anglo American. Provide clear, accurate, and helpful responses based on the conversation context.",
     };
 
+    this.initializeDefaultDomains();
     this.initializeDefaultEndpoints();
+  }
+
+  private initializeDefaultDomains() {
+    const defaultDomains: Domain[] = [
+      {
+        id: "generic",
+        name: "General Assistant",
+        description: "General purpose AI assistant for any queries",
+        systemPrompt: "You are a helpful AI assistant for Anglo American. Provide clear, accurate, and helpful responses.",
+        icon: "Bot",
+      },
+      {
+        id: "mining-ops",
+        name: "Mining Operations",
+        description: "Mining operations, production, and safety analytics",
+        systemPrompt: "You are an expert AI assistant specializing in mining operations for Anglo American. Help with production metrics, equipment performance, shift planning, safety protocols, and operational efficiency. Provide data-driven insights for mining operations.",
+        icon: "HardHat",
+      },
+      {
+        id: "geological",
+        name: "Geological Services",
+        description: "Geological surveys, ore body analysis, and exploration",
+        systemPrompt: "You are a geological expert AI for Anglo American. Assist with geological survey analysis, ore body modeling, mineral exploration data, grade control, and geological mapping. Provide scientific insights based on geological data.",
+        icon: "Mountain",
+      },
+      {
+        id: "processing",
+        name: "Mineral Processing",
+        description: "Ore processing, metallurgy, and plant operations",
+        systemPrompt: "You are a mineral processing specialist AI for Anglo American. Help with ore processing optimization, metallurgical analysis, plant throughput, recovery rates, and processing efficiency. Focus on improving extraction and processing outcomes.",
+        icon: "Factory",
+      },
+      {
+        id: "sustainability",
+        name: "Sustainability & ESG",
+        description: "Environmental, social, and governance reporting",
+        systemPrompt: "You are a sustainability expert AI for Anglo American. Assist with ESG reporting, environmental impact assessments, carbon footprint analysis, water management, community relations, and sustainability metrics. Help drive responsible mining practices.",
+        icon: "Leaf",
+      },
+      {
+        id: "supply-chain",
+        name: "Supply Chain",
+        description: "Logistics, procurement, and supply chain analytics",
+        systemPrompt: "You are a supply chain specialist AI for Anglo American. Help with logistics optimization, procurement analytics, inventory management, vendor performance, and supply chain efficiency. Provide insights to streamline operations.",
+        icon: "Truck",
+      },
+      {
+        id: "finance",
+        name: "Finance & Analytics",
+        description: "Financial analysis, budgeting, and cost optimization",
+        systemPrompt: "You are a financial analyst AI for Anglo American. Assist with financial reporting, cost analysis, budget forecasting, capital allocation, and financial performance metrics. Help optimize financial outcomes for mining operations.",
+        icon: "TrendingUp",
+      },
+    ];
+
+    defaultDomains.forEach((domain) => {
+      this.domains.set(domain.id, domain);
+    });
   }
 
   private initializeDefaultEndpoints() {
@@ -41,37 +106,71 @@ export class MemStorage implements IStorage {
       {
         id: "gpt-4-turbo",
         name: "GPT-4 Turbo",
-        description: "OpenAI GPT-4 Turbo foundation model",
+        description: "OpenAI GPT-4 Turbo - Best for complex reasoning",
         type: "foundation",
         isDefault: true,
       },
       {
         id: "claude-3-5-sonnet",
         name: "Claude 3.5 Sonnet",
-        description: "Anthropic Claude 3.5 Sonnet model",
+        description: "Anthropic Claude - Best for analysis and writing",
         type: "foundation",
         isDefault: false,
       },
       {
         id: "llama-3-1-70b",
         name: "Llama 3.1 70B",
-        description: "Meta Llama 3.1 70B Instruct",
+        description: "Meta Llama - Open source, fast responses",
         type: "foundation",
         isDefault: false,
       },
       {
-        id: "geological-analyzer",
-        name: "Geological Analyzer",
-        description: "Fine-tuned model for geological survey analysis",
-        type: "custom",
-        isDefault: false,
-      },
-      {
-        id: "operations-agent",
-        name: "Operations Agent",
-        description: "Agent for mining operations data exploration",
+        id: "mining-ops-agent",
+        name: "Mining Operations Agent",
+        description: "Specialized agent for mining operations data",
         type: "agent",
         isDefault: false,
+        domainId: "mining-ops",
+      },
+      {
+        id: "geological-agent",
+        name: "Geological Analysis Agent",
+        description: "Agent for geological survey and exploration data",
+        type: "agent",
+        isDefault: false,
+        domainId: "geological",
+      },
+      {
+        id: "processing-agent",
+        name: "Processing Plant Agent",
+        description: "Agent for mineral processing optimization",
+        type: "agent",
+        isDefault: false,
+        domainId: "processing",
+      },
+      {
+        id: "sustainability-agent",
+        name: "ESG & Sustainability Agent",
+        description: "Agent for environmental and sustainability data",
+        type: "agent",
+        isDefault: false,
+        domainId: "sustainability",
+      },
+      {
+        id: "supply-chain-agent",
+        name: "Supply Chain Agent",
+        description: "Agent for logistics and procurement analytics",
+        type: "agent",
+        isDefault: false,
+        domainId: "supply-chain",
+      },
+      {
+        id: "finance-agent",
+        name: "Finance Analytics Agent",
+        description: "Agent for financial analysis and reporting",
+        type: "agent",
+        isDefault: false,
+        domainId: "finance",
       },
     ];
 
@@ -88,7 +187,7 @@ export class MemStorage implements IStorage {
     return this.conversations.get(id);
   }
 
-  async createConversation(endpointId: string, title: string): Promise<Conversation> {
+  async createConversation(endpointId: string, title: string, domainId?: string): Promise<Conversation> {
     const id = randomUUID();
     const now = Date.now();
     const conversation: Conversation = {
@@ -96,6 +195,7 @@ export class MemStorage implements IStorage {
       title,
       messages: [],
       endpointId,
+      domainId,
       createdAt: now,
       updatedAt: now,
     };
@@ -142,8 +242,20 @@ export class MemStorage implements IStorage {
     return this.conversations.delete(id);
   }
 
-  async getEndpoints(): Promise<Endpoint[]> {
-    return Array.from(this.endpoints.values());
+  async getDomains(): Promise<Domain[]> {
+    return Array.from(this.domains.values());
+  }
+
+  async getDomain(id: string): Promise<Domain | undefined> {
+    return this.domains.get(id);
+  }
+
+  async getEndpoints(domainId?: string): Promise<Endpoint[]> {
+    const allEndpoints = Array.from(this.endpoints.values());
+    if (!domainId || domainId === "generic") {
+      return allEndpoints.filter(e => !e.domainId || e.type === "foundation");
+    }
+    return allEndpoints.filter(e => !e.domainId || e.domainId === domainId || e.type === "foundation");
   }
 
   async getEndpoint(id: string): Promise<Endpoint | undefined> {
