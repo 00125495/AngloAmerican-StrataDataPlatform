@@ -50,9 +50,15 @@ export async function registerRoutes(
         res.setHeader("Content-Type", contentType);
       }
 
-      if (contentType?.includes("application/json")) {
-        const data = await response.json();
-        res.json(data);
+      if (response.status === 204) {
+        res.status(204).end();
+      } else if (contentType?.includes("application/json")) {
+        const text = await response.text();
+        if (text) {
+          res.json(JSON.parse(text));
+        } else {
+          res.status(response.status).end();
+        }
       } else {
         const text = await response.text();
         res.send(text);
