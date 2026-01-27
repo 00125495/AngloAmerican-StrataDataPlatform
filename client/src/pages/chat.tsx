@@ -10,6 +10,7 @@ import { EndpointSelector } from "@/components/endpoint-selector";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LogoShowcase } from "@/components/logo-showcase";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Conversation, Endpoint, Config } from "@shared/schema";
@@ -143,9 +144,11 @@ export default function Chat() {
   }, []);
 
   const isLoading = endpointsLoading || configLoading;
+  const [showLogoOptions, setShowLogoOptions] = useState(true);
 
   return (
     <>
+      {showLogoOptions && <LogoShowcase />}
       <ConversationSidebar
         conversations={conversations}
         activeConversationId={activeConversationId}
