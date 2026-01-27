@@ -4,6 +4,26 @@
 
 A modern ChatGPT-style chat interface for connecting to Databricks serving endpoints and AI agents. Branded for Anglo American, the application provides conversational AI with support for foundation models, custom models, and agents. Users can manage multiple conversations, select different AI endpoints based on their access permissions, and configure system prompts.
 
+## Domain & Site Configuration
+
+The app features domain-based specialization and site-specific context:
+
+### Business Domains (7 total)
+- Mining Operations, Geological Services, Mineral Processing
+- Sustainability & ESG, Supply Chain, Finance & Analytics, General Assistant
+
+### Mining Sites (11 sites across global locations)
+- **South Africa**: Kumba, Sishen, Mogalakwena, Unki, Amandelbult
+- **South America**: Quellaveco (Peru), Minas-Rio (Brazil), Los Bronces (Chile)
+- **Australia**: Moranbah (Queensland)
+- **Europe**: Sakatti (Finland), Woodsmith (UK)
+
+### How It Works
+- Domain and Site selectors appear in the header for quick switching
+- Settings dialog allows configuring defaults for domain, site, and model
+- Site context is automatically appended to system prompts when a specific site is selected
+- Conversations store the domainId and siteId for context preservation
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -49,6 +69,8 @@ The frontend follows a component-based architecture with:
 
 Key API endpoints:
 - `GET /api/endpoints` - List available AI endpoints (fetches from Databricks if credentials available)
+- `GET /api/domains` - List business domains
+- `GET /api/sites` - List mining sites
 - `GET/POST /api/conversations` - Manage conversations
 - `POST /api/chat` - Send messages and receive AI responses (with conversation context)
 - `GET/POST /api/config` - Application configuration
