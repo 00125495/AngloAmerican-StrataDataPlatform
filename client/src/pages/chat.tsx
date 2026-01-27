@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ConversationSidebar } from "@/components/conversation-sidebar";
 import { ChatMessage, TypingIndicator } from "@/components/chat-message";
 import { ChatInput } from "@/components/chat-input";
@@ -15,6 +16,12 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Conversation, Endpoint, Domain, Site, Config } from "@shared/schema";
+
+interface UserInfo {
+  email: string | null;
+  displayName: string | null;
+  isAuthenticated: boolean;
+}
 
 export default function Chat() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -54,6 +61,19 @@ export default function Chat() {
   const { data: config = {}, isLoading: configLoading } = useQuery<Config>({
     queryKey: ["/api/config"],
   });
+
+  const { data: userInfo } = useQuery<UserInfo>({
+    queryKey: ["/api/user"],
+  });
+
+  const getUserInitials = (email: string | null) => {
+    if (!email) return "?";
+    const parts = email.split("@")[0].split(".");
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return email.slice(0, 2).toUpperCase();
+  };
 
   const activeConversation = conversations.find(
     (c) => c.id === activeConversationId
@@ -257,7 +277,21 @@ export default function Chat() {
               </>
             )}
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-3">
+            {userInfo?.email && (
+              <div className="flex items-center gap-2" data-testid="user-info">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                    {getUserInitials(userInfo.email)}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm text-muted-foreground hidden sm:inline" data-testid="text-user-email">
+                  {userInfo.email}
+                </span>
+              </div>
+            )}
+            <ThemeToggle />
+          </div>
         </header>
 
         <main className="flex-1 flex flex-col min-h-0">
