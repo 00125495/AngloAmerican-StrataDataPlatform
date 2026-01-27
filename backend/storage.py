@@ -327,20 +327,32 @@ storage_instance: Optional[IStorage] = None
 
 async def initialize_storage() -> IStorage:
     global storage_instance
+    import os
+    
+    print(f"[STORAGE] Checking environment variables...")
+    print(f"[STORAGE] PGHOST: {os.environ.get('PGHOST', 'not set')}")
+    print(f"[STORAGE] PGDATABASE: {os.environ.get('PGDATABASE', 'not set')}")
+    print(f"[STORAGE] DATABRICKS_CLIENT_ID: {'set' if os.environ.get('DATABRICKS_CLIENT_ID') else 'not set'}")
+    print(f"[STORAGE] DATABRICKS_CLIENT_SECRET: {'set' if os.environ.get('DATABRICKS_CLIENT_SECRET') else 'not set'}")
     
     # Try LakeBase SDK first (Databricks Apps with OAuth token management)
     from .lakebase_sdk_storage import is_lakebase_configured, LakebaseSDKStorage
+    print(f"[STORAGE] is_lakebase_configured: {is_lakebase_configured()}")
+    
     if is_lakebase_configured():
         try:
+            print("[STORAGE] Attempting LakeBase SDK storage initialization...")
             lakebase_sdk_storage = LakebaseSDKStorage()
             await lakebase_sdk_storage.initialize()
             storage_instance = lakebase_sdk_storage
-            print("Using LakeBase SDK storage (Databricks with OAuth)")
+            print("[STORAGE] SUCCESS - Using LakeBase SDK storage (Databricks with OAuth)")
             await storage_instance.refresh_endpoints_from_databricks()
             return storage_instance
         except Exception as e:
-            print(f"Failed to initialize LakeBase SDK storage: {e}")
-            print("Falling back to other storage options")
+            import traceback
+            print(f"[STORAGE] Failed to initialize LakeBase SDK storage: {e}")
+            print(f"[STORAGE] Traceback: {traceback.format_exc()}")
+            print("[STORAGE] Falling back to other storage options")
     
     # Try simple PostgreSQL (if PGPASSWORD is available)
     from .postgres_storage import get_postgres_url, PostgresStorage

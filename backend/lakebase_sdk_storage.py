@@ -51,11 +51,16 @@ class LakebaseSDKStorage(IStorage):
     async def initialize(self):
         """Initialize database connection with OAuth token management."""
         try:
+            print("[LAKEBASE] Starting initialization...")
             from databricks.sdk import WorkspaceClient
             
+            print("[LAKEBASE] Creating WorkspaceClient...")
             self.workspace_client = WorkspaceClient()
+            print("[LAKEBASE] WorkspaceClient created successfully")
             
+            print("[LAKEBASE] Generating OAuth token...")
             await self._generate_token()
+            print(f"[LAKEBASE] Token generated: {'yes' if self.postgres_token else 'no'}")
             
             pghost = os.environ.get("PGHOST")
             pgdatabase = os.environ.get("PGDATABASE")
