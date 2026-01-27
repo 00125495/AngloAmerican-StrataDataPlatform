@@ -1,10 +1,10 @@
 import os
 import httpx
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse, Response
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from typing import Optional
 
@@ -14,6 +14,14 @@ from .models import (
     InsertMessage, MessageRole, EndpointType
 )
 from .storage import initialize_storage, get_storage, IStorage
+from .user_context import UserContext, get_user_context, get_dev_user_context
+from .databricks_client import databricks_client
+
+
+class UserInfo(BaseModel):
+    email: Optional[str] = None
+    displayName: Optional[str] = None
+    isAuthenticated: bool = False
 
 
 storage: Optional[IStorage] = None
@@ -63,8 +71,28 @@ async def get_sites() -> list[Site]:
     return await storage.get_sites()
 
 
+@app.get("/api/user")
+async def get_current_user(request: Request) -> UserInfo:
+    user_ctx = get_user_context(request)
+    return UserInfo(
+        email=user_ctx.email,
+        displayName=user_ctx.display_name,
+        isAuthenticated=user_ctx.is_authenticated
+    )
+
+
 @app.get("/api/endpoints")
-async def get_endpoints(domainId: str = Query(None)) -> list[Endpoint]:
+async def get_endpoints(request: Request, domainId: str = Query(None)) -> list[Endpoint]:
+    user_ctx = get_user_context(request)
+    
+    if user_ctx.access_token and databricks_client.host:
+        try:
+            endpoints = await databricks_client.list_serving_endpoints(user_ctx.access_token)
+            if endpoints:
+                return endpoints
+        except Exception as e:
+            print(f"Failed to fetch user endpoints: {e}")
+    
     endpoints = await storage.get_endpoints(domainId)
     if endpoints and not any(e.isDefault for e in endpoints):
         endpoints[0] = endpoints[0].model_copy(update={"isDefault": True})
@@ -72,7 +100,17 @@ async def get_endpoints(domainId: str = Query(None)) -> list[Endpoint]:
 
 
 @app.post("/api/endpoints/refresh")
-async def refresh_endpoints() -> list[Endpoint]:
+async def refresh_endpoints(request: Request) -> list[Endpoint]:
+    user_ctx = get_user_context(request)
+    
+    if user_ctx.access_token and databricks_client.host:
+        try:
+            endpoints = await databricks_client.list_serving_endpoints(user_ctx.access_token)
+            if endpoints:
+                return endpoints
+        except Exception as e:
+            print(f"Failed to refresh user endpoints: {e}")
+    
     endpoints = await storage.refresh_endpoints_from_databricks()
     return endpoints
 
@@ -119,7 +157,9 @@ async def delete_conversation(id: str):
 
 
 @app.post("/api/chat")
-async def chat(request: ChatRequest) -> ChatResponse:
+async def chat(http_request: Request, request: ChatRequest) -> ChatResponse:
+    user_ctx = get_user_context(http_request)
+    
     endpoint = await storage.get_endpoint(request.endpointId)
     domain = await storage.get_domain(request.domainId or "generic")
     site = await storage.get_site(request.siteId or "all-sites")
@@ -144,44 +184,28 @@ async def chat(request: ChatRequest) -> ChatResponse:
         InsertMessage(role=MessageRole.user, content=request.message, timestamp=int(__import__("time").time() * 1000))
     )
 
-    databricks_host = os.environ.get("DATABRICKS_HOST")
-    databricks_token = os.environ.get("DATABRICKS_TOKEN")
-    
     site_context = f" Focus on data and context specific to {site.name} ({site.location})." if site and site.id != "all-sites" else ""
     system_prompt = (domain.systemPrompt if domain else "You are a helpful AI assistant.") + site_context
 
     endpoint_name = endpoint.name if endpoint else request.endpointId
     databricks_endpoint_name = request.endpointId[len("databricks-"):] if request.endpointId.startswith("databricks-") else request.endpointId
 
-    if databricks_host and databricks_token:
+    messages = [
+        {"role": "system", "content": system_prompt},
+        *conversation_context,
+        {"role": "user", "content": request.message}
+    ]
+
+    user_token = user_ctx.access_token
+    can_call_databricks = databricks_client.host and (user_token or databricks_client.is_configured())
+    
+    if can_call_databricks:
         try:
-            request_body = {
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    *conversation_context,
-                    {"role": "user", "content": request.message}
-                ]
-            }
-
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{databricks_host}/serving-endpoints/{databricks_endpoint_name}/invocations",
-                    headers={
-                        "Authorization": f"Bearer {databricks_token}",
-                        "Content-Type": "application/json"
-                    },
-                    json=request_body
-                )
-
-                if response.status_code != 200:
-                    raise Exception(f"Databricks API error: {response.status_code}")
-
-                data = response.json()
-                ai_response = (
-                    data.get("choices", [{}])[0].get("message", {}).get("content") or
-                    data.get("predictions", [None])[0] or
-                    "I received your message but couldn't generate a response."
-                )
+            ai_response = await databricks_client.call_serving_endpoint(
+                databricks_endpoint_name, 
+                messages, 
+                user_token
+            )
         except Exception as e:
             print(f"Databricks API error: {e}")
             ai_response = generate_mock_response(
