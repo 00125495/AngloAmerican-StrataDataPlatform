@@ -29,6 +29,7 @@ class Conversation(BaseModel):
     endpointId: str
     domainId: Optional[str] = None
     siteId: Optional[str] = None
+    userEmail: Optional[str] = None
     createdAt: int
     updatedAt: int
 

@@ -105,6 +105,7 @@ class LakeBaseStorage(IStorage):
                     endpoint_id STRING,
                     domain_id STRING,
                     site_id STRING,
+                    user_email STRING,
                     created_at BIGINT,
                     updated_at BIGINT
                 )
@@ -239,10 +240,14 @@ class LakeBaseStorage(IStorage):
         finally:
             cursor.close()
 
-    async def get_conversations(self) -> list[Conversation]:
+    async def get_conversations(self, user_email: Optional[str] = None) -> list[Conversation]:
         cursor = self.connection.cursor()
         try:
-            cursor.execute("SELECT * FROM conversations ORDER BY updated_at DESC")
+            if user_email:
+                safe_email = self._escape_string(user_email)
+                cursor.execute(f"SELECT * FROM conversations WHERE user_email = '{safe_email}' ORDER BY updated_at DESC")
+            else:
+                cursor.execute("SELECT * FROM conversations ORDER BY updated_at DESC")
             rows = cursor.fetchall()
             
             conversations = []
@@ -256,7 +261,7 @@ class LakeBaseStorage(IStorage):
                 conversations.append(Conversation(
                     id=row[0], title=row[1], messages=messages,
                     endpointId=row[2], domainId=row[3], siteId=row[4],
-                    createdAt=row[5], updatedAt=row[6]
+                    userEmail=row[5], createdAt=row[6], updatedAt=row[7]
                 ))
             return conversations
         finally:
@@ -280,14 +285,15 @@ class LakeBaseStorage(IStorage):
             return Conversation(
                 id=row[0], title=row[1], messages=messages,
                 endpointId=row[2], domainId=row[3], siteId=row[4],
-                createdAt=row[5], updatedAt=row[6]
+                userEmail=row[5], createdAt=row[6], updatedAt=row[7]
             )
         finally:
             cursor.close()
 
     async def create_conversation(
         self, endpoint_id: str, title: str,
-        domain_id: Optional[str] = None, site_id: Optional[str] = None
+        domain_id: Optional[str] = None, site_id: Optional[str] = None,
+        user_email: Optional[str] = None
     ) -> Conversation:
         cursor = self.connection.cursor()
         conv_id = str(uuid4())
@@ -295,6 +301,7 @@ class LakeBaseStorage(IStorage):
         safe_endpoint = self._escape_id(endpoint_id)
         safe_domain = self._escape_id(domain_id) if domain_id else None
         safe_site = self._escape_id(site_id) if site_id else None
+        safe_email = self._escape_string(user_email) if user_email else None
 
         try:
             cursor.execute(f"""
@@ -302,13 +309,14 @@ class LakeBaseStorage(IStorage):
                     '{conv_id}', '{self._escape_string(title)}', '{safe_endpoint}',
                     {f"'{safe_domain}'" if safe_domain else "NULL"},
                     {f"'{safe_site}'" if safe_site else "NULL"},
+                    {f"'{safe_email}'" if safe_email else "NULL"},
                     {now}, {now}
                 )
             """)
             return Conversation(
                 id=conv_id, title=title, messages=[],
                 endpointId=endpoint_id, domainId=domain_id, siteId=site_id,
-                createdAt=now, updatedAt=now
+                userEmail=user_email, createdAt=now, updatedAt=now
             )
         finally:
             cursor.close()

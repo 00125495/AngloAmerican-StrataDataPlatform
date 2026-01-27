@@ -136,8 +136,9 @@ async def delete_endpoint(id: str):
 
 
 @app.get("/api/conversations")
-async def get_conversations() -> list[Conversation]:
-    return await storage.get_conversations()
+async def get_conversations(request: Request) -> list[Conversation]:
+    user_ctx = get_user_context(request)
+    return await storage.get_conversations(user_ctx.email)
 
 
 @app.get("/api/conversations/{id}")
@@ -171,7 +172,7 @@ async def chat(http_request: Request, request: ChatRequest) -> ChatResponse:
     else:
         title = request.message[:50] + ("..." if len(request.message) > 50 else "")
         conversation = await storage.create_conversation(
-            request.endpointId, title, request.domainId, request.siteId
+            request.endpointId, title, request.domainId, request.siteId, user_ctx.email
         )
 
     conversation_context = [

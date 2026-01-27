@@ -18,6 +18,7 @@ export const conversationSchema = z.object({
   endpointId: z.string(),
   domainId: z.string().optional(),
   siteId: z.string().optional(),
+  userEmail: z.string().optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });

@@ -14,7 +14,7 @@ class IStorage(ABC):
         pass
 
     @abstractmethod
-    async def get_conversations(self) -> list[Conversation]:
+    async def get_conversations(self, user_email: Optional[str] = None) -> list[Conversation]:
         pass
 
     @abstractmethod
@@ -24,7 +24,8 @@ class IStorage(ABC):
     @abstractmethod
     async def create_conversation(
         self, endpoint_id: str, title: str,
-        domain_id: Optional[str] = None, site_id: Optional[str] = None
+        domain_id: Optional[str] = None, site_id: Optional[str] = None,
+        user_email: Optional[str] = None
     ) -> Conversation:
         pass
 
@@ -169,19 +170,19 @@ class MemStorage(IStorage):
         for endpoint in default_endpoints:
             self.endpoints[endpoint.id] = endpoint
 
-    async def get_conversations(self) -> list[Conversation]:
-        return sorted(
-            list(self.conversations.values()),
-            key=lambda c: c.updatedAt,
-            reverse=True
-        )
+    async def get_conversations(self, user_email: Optional[str] = None) -> list[Conversation]:
+        conversations = list(self.conversations.values())
+        if user_email:
+            conversations = [c for c in conversations if c.userEmail == user_email]
+        return sorted(conversations, key=lambda c: c.updatedAt, reverse=True)
 
     async def get_conversation(self, id: str) -> Optional[Conversation]:
         return self.conversations.get(id)
 
     async def create_conversation(
         self, endpoint_id: str, title: str,
-        domain_id: Optional[str] = None, site_id: Optional[str] = None
+        domain_id: Optional[str] = None, site_id: Optional[str] = None,
+        user_email: Optional[str] = None
     ) -> Conversation:
         conv_id = str(uuid4())
         now = int(time.time() * 1000)
@@ -192,6 +193,7 @@ class MemStorage(IStorage):
             endpointId=endpoint_id,
             domainId=domain_id,
             siteId=site_id,
+            userEmail=user_email,
             createdAt=now,
             updatedAt=now
         )
