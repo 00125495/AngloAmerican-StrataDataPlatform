@@ -161,11 +161,43 @@ class DatabricksClient:
                     raise Exception(f"Databricks API error: {response.status_code} - {response.text}")
                 
                 data = response.json()
-                return (
-                    data.get("choices", [{}])[0].get("message", {}).get("content") or
-                    data.get("predictions", [None])[0] or
-                    "I received your message but couldn't generate a response."
-                )
+                print(f"[DEBUG] Databricks raw response: {data}")
+                
+                # Handle various response formats
+                content = None
+                
+                # OpenAI chat completion format
+                if "choices" in data and len(data["choices"]) > 0:
+                    message = data["choices"][0].get("message", {})
+                    content = message.get("content")
+                    
+                    # Handle agent responses where content is a list of objects
+                    if isinstance(content, list):
+                        # Extract text from structured content (agent format)
+                        text_parts = []
+                        for item in content:
+                            if isinstance(item, dict):
+                                if item.get("type") == "text":
+                                    text_parts.append(item.get("text", ""))
+                                elif "text" in item:
+                                    text_parts.append(item["text"])
+                                elif "content" in item:
+                                    text_parts.append(str(item["content"]))
+                            elif isinstance(item, str):
+                                text_parts.append(item)
+                        content = "\n".join(text_parts) if text_parts else str(content)
+                    elif content is None:
+                        content = message.get("text", "")
+                
+                # Predictions format (custom models)
+                if not content and "predictions" in data:
+                    pred = data["predictions"][0] if data["predictions"] else None
+                    if isinstance(pred, str):
+                        content = pred
+                    elif isinstance(pred, dict):
+                        content = pred.get("text", pred.get("content", str(pred)))
+                
+                return content or "I received your message but couldn't generate a response."
                 
         except Exception as e:
             print(f"Error calling serving endpoint {endpoint_name}: {e}")
