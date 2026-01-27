@@ -38,7 +38,7 @@ export function EmptyState({ onSuggestionClick }: EmptyStateProps) {
       </div>
 
       <h1 className="text-2xl font-semibold text-center mb-2">
-        Welcome to Anglo Strata
+        Welcome to Anglo <span className="text-[#FF0000]">Strata</span>
       </h1>
       <p className="text-muted-foreground text-center mb-8 max-w-md">
         Mining intelligence through AI-powered conversations. Select a model and start chatting.

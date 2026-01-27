@@ -22,7 +22,7 @@ export function AngloStrataLogo({ className = "" }: { className?: string }) {
         />
       </div>
       <div className="flex flex-col">
-        <span className="text-lg font-bold leading-tight tracking-tight">Anglo Strata</span>
+        <span className="text-lg font-bold leading-tight tracking-tight">Anglo <span className="text-[#FF0000]">Strata</span></span>
         <span className="text-[10px] uppercase tracking-widest opacity-70 leading-tight">Mining Intelligence</span>
       </div>
     </div>
