@@ -2,9 +2,61 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { spawn, ChildProcess } from "child_process";
 
 const app = express();
 const httpServer = createServer(app);
+
+let fastapiProcess: ChildProcess | null = null;
+
+function startFastAPI(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    console.log("Starting FastAPI backend on port 8000...");
+    fastapiProcess = spawn("python", ["-m", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", "8000", "--reload"], {
+      stdio: ["inherit", "pipe", "pipe"],
+      env: { ...process.env }
+    });
+
+    fastapiProcess.stdout?.on("data", (data) => {
+      const output = data.toString();
+      if (output.includes("Uvicorn running") || output.includes("Application startup complete")) {
+        resolve();
+      }
+      process.stdout.write(`[fastapi] ${output}`);
+    });
+
+    fastapiProcess.stderr?.on("data", (data) => {
+      process.stderr.write(`[fastapi] ${data}`);
+    });
+
+    fastapiProcess.on("error", (err) => {
+      console.error("Failed to start FastAPI:", err);
+      reject(err);
+    });
+
+    fastapiProcess.on("exit", (code) => {
+      if (code !== 0) {
+        console.error(`FastAPI exited with code ${code}`);
+      }
+    });
+
+    setTimeout(resolve, 3000);
+  });
+}
+
+process.on("SIGINT", () => {
+  if (fastapiProcess) {
+    fastapiProcess.kill();
+  }
+  process.exit(0);
+});
+
+process.on("SIGTERM", () => {
+  if (fastapiProcess) {
+    fastapiProcess.kill();
+  }
+  process.exit(0);
+});
 
 declare module "http" {
   interface IncomingMessage {
@@ -60,6 +112,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await startFastAPI();
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
