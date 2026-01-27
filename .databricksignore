@@ -1,0 +1,24 @@
+# Ignore Node.js files - this is a Python app
+package.json
+package-lock.json
+node_modules/
+script/
+server/
+client/
+shared/
+tsconfig.json
+vite.config.ts
+drizzle.config.ts
+tailwind.config.ts
+postcss.config.js
+components.json
+.replit
+.upm/
+*.ts
+*.tsx
+
+# Keep these for deployment
+!backend/
+!dist/public/
+!app.yaml
+!requirements.txt
