@@ -196,16 +196,26 @@ class LakebaseSDKStorage(IStorage):
         """Create database tables if they don't exist, or verify they exist."""
         try:
             async with self.engine.begin() as conn:
-                # First check if tables already exist
-                result = await conn.execute(text("""
-                    SELECT table_name FROM information_schema.tables 
-                    WHERE table_schema = 'public' AND table_name IN ('conversations', 'messages')
-                """))
-                existing_tables = {row[0] for row in result.fetchall()}
-                
-                if 'conversations' in existing_tables and 'messages' in existing_tables:
+                # Try to check if tables exist by querying them directly
+                # This avoids needing permissions on information_schema
+                tables_exist = True
+                try:
+                    await conn.execute(text("SELECT 1 FROM conversations LIMIT 1"))
+                    await conn.execute(text("SELECT 1 FROM messages LIMIT 1"))
                     print("[LAKEBASE] Tables already exist, skipping creation")
                     logger.info("Database tables already exist")
+                    return
+                except Exception as check_error:
+                    error_str = str(check_error).lower()
+                    if "does not exist" in error_str or "relation" in error_str:
+                        tables_exist = False
+                        print("[LAKEBASE] Tables do not exist, will attempt creation")
+                    else:
+                        # Some other error - tables might exist
+                        print(f"[LAKEBASE] Could not check tables: {check_error}")
+                        tables_exist = False
+                
+                if tables_exist:
                     return
                 
                 # Try to create tables if they don't exist
