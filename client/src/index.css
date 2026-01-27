@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LIGHT MODE - Anglo American inspired theme */
+/* LIGHT MODE - Anglo American brand colors (#031795 Blue, #FF0000 Red) */
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
@@ -13,49 +13,49 @@
   --elevate-2: rgba(0,0,0, .08);
 
   --background: 0 0% 98%;
-  --foreground: 223 73% 15%;
+  --foreground: 232 96% 15%;
 
   --border: 220 13% 91%;
 
   --card: 0 0% 100%;
-  --card-foreground: 223 73% 15%;
+  --card-foreground: 232 96% 15%;
   --card-border: 220 13% 91%;
 
-  --sidebar: 223 73% 29%;
+  --sidebar: 232 96% 30%;
   --sidebar-foreground: 0 0% 100%;
-  --sidebar-border: 223 73% 24%;
+  --sidebar-border: 232 96% 24%;
   --sidebar-primary: 0 0% 100%;
-  --sidebar-primary-foreground: 223 73% 29%;
-  --sidebar-accent: 223 73% 35%;
+  --sidebar-primary-foreground: 232 96% 30%;
+  --sidebar-accent: 232 96% 38%;
   --sidebar-accent-foreground: 0 0% 100%;
   --sidebar-ring: 0 0% 100%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 223 73% 15%;
+  --popover-foreground: 232 96% 15%;
   --popover-border: 220 13% 91%;
 
-  --primary: 223 73% 29%;
+  --primary: 232 96% 30%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 220 14% 96%;
-  --secondary-foreground: 223 73% 15%;
+  --secondary-foreground: 232 96% 15%;
 
   --muted: 220 14% 96%;
   --muted-foreground: 220 9% 46%;
 
-  --accent: 220 14% 96%;
-  --accent-foreground: 223 73% 15%;
+  --accent: 0 100% 50%;
+  --accent-foreground: 0 0% 100%;
 
-  --destructive: 0 84% 60%;
+  --destructive: 0 100% 50%;
   --destructive-foreground: 0 0% 100%;
 
   --input: 220 13% 91%;
-  --ring: 223 73% 29%;
-  --chart-1: 223 73% 29%;
-  --chart-2: 223 73% 45%;
-  --chart-3: 223 50% 55%;
-  --chart-4: 200 60% 50%;
-  --chart-5: 180 50% 45%;
+  --ring: 232 96% 30%;
+  --chart-1: 232 96% 30%;
+  --chart-2: 0 100% 50%;
+  --chart-3: 232 70% 50%;
+  --chart-4: 0 80% 60%;
+  --chart-5: 232 50% 60%;
 
   --font-sans: 'Inter', sans-serif;
   --font-serif: Georgia, serif;
@@ -103,50 +103,50 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 223 47% 6%;
+  --background: 232 47% 6%;
   --foreground: 210 40% 98%;
 
-  --border: 223 33% 17%;
+  --border: 232 33% 17%;
 
-  --card: 223 47% 9%;
+  --card: 232 47% 9%;
   --card-foreground: 210 40% 98%;
-  --card-border: 223 33% 17%;
+  --card-border: 232 33% 17%;
 
-  --sidebar: 223 73% 18%;
+  --sidebar: 232 96% 20%;
   --sidebar-foreground: 210 40% 98%;
-  --sidebar-border: 223 73% 14%;
+  --sidebar-border: 232 96% 15%;
   --sidebar-primary: 210 40% 98%;
-  --sidebar-primary-foreground: 223 73% 18%;
-  --sidebar-accent: 223 73% 24%;
+  --sidebar-primary-foreground: 232 96% 20%;
+  --sidebar-accent: 232 96% 28%;
   --sidebar-accent-foreground: 210 40% 98%;
   --sidebar-ring: 210 40% 98%;
 
-  --popover: 223 47% 9%;
+  --popover: 232 47% 9%;
   --popover-foreground: 210 40% 98%;
-  --popover-border: 223 33% 17%;
+  --popover-border: 232 33% 17%;
 
-  --primary: 223 73% 45%;
+  --primary: 232 96% 50%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 223 33% 15%;
+  --secondary: 232 33% 15%;
   --secondary-foreground: 210 40% 98%;
 
-  --muted: 223 33% 15%;
+  --muted: 232 33% 15%;
   --muted-foreground: 215 20% 65%;
 
-  --accent: 223 33% 15%;
-  --accent-foreground: 210 40% 98%;
+  --accent: 0 100% 50%;
+  --accent-foreground: 0 0% 100%;
 
-  --destructive: 0 62% 50%;
+  --destructive: 0 100% 50%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 223 33% 20%;
-  --ring: 223 73% 45%;
-  --chart-1: 223 73% 45%;
-  --chart-2: 223 60% 55%;
-  --chart-3: 200 50% 55%;
-  --chart-4: 180 60% 50%;
-  --chart-5: 160 50% 45%;
+  --input: 232 33% 20%;
+  --ring: 232 96% 50%;
+  --chart-1: 232 96% 50%;
+  --chart-2: 0 100% 50%;
+  --chart-3: 232 70% 60%;
+  --chart-4: 0 80% 65%;
+  --chart-5: 232 50% 70%;
 
   --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.2);
   --shadow-xs: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.3);
