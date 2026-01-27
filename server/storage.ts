@@ -1,37 +1,162 @@
-import { type User, type InsertUser } from "@shared/schema";
 import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import type {
+  Conversation,
+  Message,
+  Endpoint,
+  Config,
+} from "@shared/schema";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getConversations(): Promise<Conversation[]>;
+  getConversation(id: string): Promise<Conversation | undefined>;
+  createConversation(endpointId: string, title: string): Promise<Conversation>;
+  addMessage(conversationId: string, message: Omit<Message, "id">): Promise<Message>;
+  updateConversation(id: string, updates: Partial<Conversation>): Promise<Conversation | undefined>;
+  deleteConversation(id: string): Promise<boolean>;
+  
+  getEndpoints(): Promise<Endpoint[]>;
+  getEndpoint(id: string): Promise<Endpoint | undefined>;
+  
+  getConfig(): Promise<Config>;
+  setConfig(config: Config): Promise<Config>;
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+  private conversations: Map<string, Conversation>;
+  private endpoints: Map<string, Endpoint>;
+  private config: Config;
 
   constructor() {
-    this.users = new Map();
+    this.conversations = new Map();
+    this.endpoints = new Map();
+    this.config = {
+      systemPrompt: "You are a helpful AI assistant connected to Databricks. Provide clear, accurate, and helpful responses based on the conversation context.",
+    };
+
+    this.initializeDefaultEndpoints();
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  private initializeDefaultEndpoints() {
+    const defaultEndpoints: Endpoint[] = [
+      {
+        id: "foundation-gpt4",
+        name: "GPT-4 Turbo",
+        description: "OpenAI GPT-4 Turbo foundation model",
+        type: "foundation",
+        isDefault: true,
+      },
+      {
+        id: "foundation-claude",
+        name: "Claude 3.5 Sonnet",
+        description: "Anthropic Claude 3.5 Sonnet model",
+        type: "foundation",
+        isDefault: false,
+      },
+      {
+        id: "foundation-llama",
+        name: "Llama 3.1 70B",
+        description: "Meta Llama 3.1 70B Instruct",
+        type: "foundation",
+        isDefault: false,
+      },
+      {
+        id: "custom-sales",
+        name: "Sales Analyzer",
+        description: "Fine-tuned model for sales data analysis",
+        type: "custom",
+        isDefault: false,
+      },
+      {
+        id: "agent-data",
+        name: "Data Agent",
+        description: "Databricks Agent for data exploration",
+        type: "agent",
+        isDefault: false,
+      },
+    ];
+
+    defaultEndpoints.forEach((endpoint) => {
+      this.endpoints.set(endpoint.id, endpoint);
+    });
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async getConversations(): Promise<Conversation[]> {
+    return Array.from(this.conversations.values());
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
+  async getConversation(id: string): Promise<Conversation | undefined> {
+    return this.conversations.get(id);
+  }
+
+  async createConversation(endpointId: string, title: string): Promise<Conversation> {
     const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+    const now = Date.now();
+    const conversation: Conversation = {
+      id,
+      title,
+      messages: [],
+      endpointId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.conversations.set(id, conversation);
+    return conversation;
+  }
+
+  async addMessage(
+    conversationId: string,
+    message: Omit<Message, "id">
+  ): Promise<Message> {
+    const conversation = this.conversations.get(conversationId);
+    if (!conversation) {
+      throw new Error("Conversation not found");
+    }
+
+    const newMessage: Message = {
+      ...message,
+      id: randomUUID(),
+    };
+
+    conversation.messages.push(newMessage);
+    conversation.updatedAt = Date.now();
+    
+    if (conversation.messages.length === 1 && message.role === "user") {
+      conversation.title = message.content.slice(0, 50) + (message.content.length > 50 ? "..." : "");
+    }
+
+    return newMessage;
+  }
+
+  async updateConversation(
+    id: string,
+    updates: Partial<Conversation>
+  ): Promise<Conversation | undefined> {
+    const conversation = this.conversations.get(id);
+    if (!conversation) return undefined;
+
+    Object.assign(conversation, updates, { updatedAt: Date.now() });
+    return conversation;
+  }
+
+  async deleteConversation(id: string): Promise<boolean> {
+    return this.conversations.delete(id);
+  }
+
+  async getEndpoints(): Promise<Endpoint[]> {
+    return Array.from(this.endpoints.values());
+  }
+
+  async getEndpoint(id: string): Promise<Endpoint | undefined> {
+    return this.endpoints.get(id);
+  }
+
+  async getConfig(): Promise<Config> {
+    return this.config;
+  }
+
+  async setConfig(config: Config): Promise<Config> {
+    this.config = { ...this.config, ...config };
+    return this.config;
   }
 }
 
