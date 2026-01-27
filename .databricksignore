@@ -1,24 +1,47 @@
-# Ignore Node.js files - this is a Python app
+# Ignore Node.js/Replit development files during Databricks deployment
+node_modules/
+client/
+server/
+script/
+shared/
+
+# Config files not needed
 package.json
 package-lock.json
-node_modules/
-script/
-server/
-client/
-shared/
 tsconfig.json
 vite.config.ts
 drizzle.config.ts
 tailwind.config.ts
 postcss.config.js
 components.json
+pyproject.toml
+uv.lock
+
+# Dev scripts
+run_dev.py
+start_dev.py
+start_dev.sh
+main.py
+
+# Replit specific
 .replit
 .upm/
+.cache/
+.config/
+replit.md
+attached_assets/
+
+# Duplicate requirements file
+REQUIREMENTS_FOR_DATABRICKS.txt
+
+# TypeScript source (built files are in dist/)
 *.ts
 *.tsx
 
-# Keep these for deployment
-!backend/
-!dist/public/
+# Keep these for deployment (use ! to negate ignore)
+!backend/**
+!backend/*.py
+!dist/public/**
 !app.yaml
 !requirements.txt
+!STRATA.md
