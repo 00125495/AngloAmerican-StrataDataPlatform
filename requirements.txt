@@ -4,3 +4,5 @@ httpx==0.28.1
 pydantic==2.9.2
 databricks-sql-connector==4.0.4
 asyncpg
+databricks-sdk
+sqlalchemy
