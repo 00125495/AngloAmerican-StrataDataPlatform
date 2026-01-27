@@ -1,6 +1,10 @@
 # Dependencies
 node_modules/
 
+# Exclude from Databricks deployment (prevents tsx build error)
+package.json
+package-lock.json
+
 # Build artifacts
 dist/index.cjs
 
