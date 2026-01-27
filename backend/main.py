@@ -226,7 +226,9 @@ async def chat(http_request: Request, request: ChatRequest) -> ChatResponse:
     system_prompt = (domain.systemPrompt if domain else "You are a helpful AI assistant.") + site_context
 
     endpoint_name = endpoint.name if endpoint else request.endpointId
-    databricks_endpoint_name = request.endpointId[len("databricks-"):] if request.endpointId.startswith("databricks-") else request.endpointId
+    # Use endpoint ID directly - real endpoints from Databricks have the correct names
+    # Only strip "databricks-" prefix for legacy default endpoints
+    databricks_endpoint_name = request.endpointId
 
     messages = [
         {"role": "system", "content": system_prompt},

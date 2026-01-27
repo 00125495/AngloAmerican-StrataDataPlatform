@@ -113,20 +113,32 @@ class LakebaseSDKStorage(IStorage):
     async def _generate_token(self):
         """Generate a new OAuth token for database access."""
         try:
+            # Try explicit LAKEBASE_INSTANCE_NAME first
             instance_name = os.environ.get("LAKEBASE_INSTANCE_NAME")
             
+            # Extract instance name from PGHOST if not set (format: instance-xxx.database.azuredatabricks.net)
+            if not instance_name:
+                pghost = os.environ.get("PGHOST", "")
+                if pghost and ".database." in pghost:
+                    instance_name = pghost.split(".database.")[0]
+                    print(f"[LAKEBASE] Extracted instance name from PGHOST: {instance_name}")
+            
             if instance_name:
+                print(f"[LAKEBASE] Generating credential for instance: {instance_name}")
                 cred = self.workspace_client.database.generate_database_credential(
                     request_id=str(uuid.uuid4()),
                     instance_names=[instance_name],
                 )
                 self.postgres_token = cred.token
+                print(f"[LAKEBASE] Credential generated, token length: {len(self.postgres_token) if self.postgres_token else 0}")
             else:
+                print("[LAKEBASE] No instance name, trying workspace token...")
                 token = self.workspace_client.config.token
                 if callable(token):
                     self.postgres_token = token()
                 else:
                     self.postgres_token = token or os.environ.get("DATABRICKS_TOKEN", "")
+                print(f"[LAKEBASE] Workspace token length: {len(self.postgres_token) if self.postgres_token else 0}")
             
             self.last_token_refresh = time.time()
             logger.info("Database OAuth token generated successfully")
@@ -216,13 +228,9 @@ class LakebaseSDKStorage(IStorage):
         for site in default_sites:
             self.memory_cache["sites"][site.id] = site
 
-        default_endpoints = [
-            Endpoint(id="databricks-dbrx-instruct", name="DBRX Instruct", description="Databricks foundation model - fast and capable", type=EndpointType.foundation, isDefault=True),
-            Endpoint(id="databricks-llama-3-70b", name="Llama 3 70B", description="Meta's Llama 3 70B model", type=EndpointType.foundation, isDefault=False),
-            Endpoint(id="databricks-mixtral-8x7b", name="Mixtral 8x7B", description="Mistral AI mixture of experts", type=EndpointType.foundation, isDefault=False),
-        ]
-        for endpoint in default_endpoints:
-            self.memory_cache["endpoints"][endpoint.id] = endpoint
+        # Skip adding default endpoints - they will be populated from Databricks
+        # by refresh_endpoints_from_databricks() after initialization
+        pass
 
     async def shutdown(self):
         """Clean up resources."""

@@ -162,13 +162,17 @@ class MemStorage(IStorage):
         for site in default_sites:
             self.sites[site.id] = site
 
-        default_endpoints = [
-            Endpoint(id="databricks-dbrx-instruct", name="DBRX Instruct", description="Databricks foundation model - fast and capable", type=EndpointType.foundation, isDefault=True),
-            Endpoint(id="databricks-llama-3-70b", name="Llama 3 70B", description="Meta's Llama 3 70B model", type=EndpointType.foundation, isDefault=False),
-            Endpoint(id="databricks-mixtral-8x7b", name="Mixtral 8x7B", description="Mistral AI mixture of experts", type=EndpointType.foundation, isDefault=False),
-        ]
-        for endpoint in default_endpoints:
-            self.endpoints[endpoint.id] = endpoint
+        # Endpoints will be populated from Databricks by refresh_endpoints_from_databricks()
+        # Only add fallback endpoints if Databricks is not configured
+        from .databricks_client import databricks_client
+        if not databricks_client.is_configured():
+            default_endpoints = [
+                Endpoint(id="databricks-dbrx-instruct", name="DBRX Instruct", description="Databricks foundation model - fast and capable", type=EndpointType.foundation, isDefault=True),
+                Endpoint(id="databricks-llama-3-70b", name="Llama 3 70B", description="Meta's Llama 3 70B model", type=EndpointType.foundation, isDefault=False),
+                Endpoint(id="databricks-mixtral-8x7b", name="Mixtral 8x7B", description="Mistral AI mixture of experts", type=EndpointType.foundation, isDefault=False),
+            ]
+            for endpoint in default_endpoints:
+                self.endpoints[endpoint.id] = endpoint
 
     async def get_conversations(self, user_email: Optional[str] = None) -> list[Conversation]:
         conversations = list(self.conversations.values())
