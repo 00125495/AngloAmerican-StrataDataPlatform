@@ -113,32 +113,65 @@ class LakebaseSDKStorage(IStorage):
     async def _generate_token(self):
         """Generate a new OAuth token for database access."""
         try:
-            # Try explicit LAKEBASE_INSTANCE_NAME first
-            instance_name = os.environ.get("LAKEBASE_INSTANCE_NAME")
+            # For LakeBase, we need to get an OAuth access token
+            # Try multiple methods to get a valid token
             
-            # Extract instance name from PGHOST if not set (format: instance-xxx.database.azuredatabricks.net)
+            # Method 1: Try database credential generation (newer SDK)
+            instance_name = os.environ.get("LAKEBASE_INSTANCE_NAME")
             if not instance_name:
                 pghost = os.environ.get("PGHOST", "")
                 if pghost and ".database." in pghost:
                     instance_name = pghost.split(".database.")[0]
                     print(f"[LAKEBASE] Extracted instance name from PGHOST: {instance_name}")
             
-            if instance_name:
-                print(f"[LAKEBASE] Generating credential for instance: {instance_name}")
-                cred = self.workspace_client.database.generate_database_credential(
-                    request_id=str(uuid.uuid4()),
-                    instance_names=[instance_name],
-                )
-                self.postgres_token = cred.token
-                print(f"[LAKEBASE] Credential generated, token length: {len(self.postgres_token) if self.postgres_token else 0}")
+            if instance_name and hasattr(self.workspace_client, 'database'):
+                try:
+                    print(f"[LAKEBASE] Generating credential for instance: {instance_name}")
+                    cred = self.workspace_client.database.generate_database_credential(
+                        request_id=str(uuid.uuid4()),
+                        instance_names=[instance_name],
+                    )
+                    self.postgres_token = cred.token
+                    print(f"[LAKEBASE] Credential generated, token length: {len(self.postgres_token) if self.postgres_token else 0}")
+                    return
+                except Exception as e:
+                    print(f"[LAKEBASE] database.generate_database_credential failed: {e}")
+            
+            # Method 2: Get OAuth token via service principal
+            client_id = os.environ.get("DATABRICKS_CLIENT_ID")
+            client_secret = os.environ.get("DATABRICKS_CLIENT_SECRET")
+            host = os.environ.get("DATABRICKS_HOST", "")
+            if not host.startswith("http"):
+                host = f"https://{host}"
+            
+            if client_id and client_secret and host:
+                print("[LAKEBASE] Generating OAuth token via service principal...")
+                import httpx
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        f"{host}/oidc/v1/token",
+                        data={
+                            "grant_type": "client_credentials",
+                            "scope": "all-apis"
+                        },
+                        auth=(client_id, client_secret)
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        self.postgres_token = data.get("access_token", "")
+                        print(f"[LAKEBASE] OAuth token generated, length: {len(self.postgres_token)}")
+                        return
+                    else:
+                        print(f"[LAKEBASE] OAuth token request failed: {response.status_code} - {response.text}")
+            
+            # Method 3: Use workspace client token
+            print("[LAKEBASE] Trying workspace client token...")
+            token = self.workspace_client.config.token
+            if callable(token):
+                self.postgres_token = token()
             else:
-                print("[LAKEBASE] No instance name, trying workspace token...")
-                token = self.workspace_client.config.token
-                if callable(token):
-                    self.postgres_token = token()
-                else:
-                    self.postgres_token = token or os.environ.get("DATABRICKS_TOKEN", "")
-                print(f"[LAKEBASE] Workspace token length: {len(self.postgres_token) if self.postgres_token else 0}")
+                self.postgres_token = token or os.environ.get("DATABRICKS_TOKEN", "")
+            print(f"[LAKEBASE] Workspace token length: {len(self.postgres_token) if self.postgres_token else 0}")
             
             self.last_token_refresh = time.time()
             logger.info("Database OAuth token generated successfully")
