@@ -1,12 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { initializeStorage, getStorage, type IStorage } from "./storage";
 import { chatRequestSchema, configSchema, insertDomainSchema, insertEndpointSchema } from "@shared/schema";
+
+let storage: IStorage;
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  storage = await initializeStorage();
   
   app.get("/api/domains", async (_req, res) => {
     try {

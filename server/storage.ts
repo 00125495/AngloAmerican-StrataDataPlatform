@@ -421,4 +421,38 @@ export class MemStorage implements IStorage {
   }
 }
 
+import { LakeBaseStorage, createLakeBaseConfig } from "./lakebase-storage";
+
+let storageInstance: IStorage | null = null;
+
+export async function initializeStorage(): Promise<IStorage> {
+  if (storageInstance) return storageInstance;
+
+  const lakebaseConfig = createLakeBaseConfig();
+  
+  if (lakebaseConfig) {
+    console.log("LakeBase configuration found. Initializing LakeBase storage...");
+    try {
+      const lakebaseStorage = new LakeBaseStorage(lakebaseConfig);
+      await lakebaseStorage.initialize();
+      storageInstance = lakebaseStorage;
+      console.log(`Connected to LakeBase: ${lakebaseConfig.catalog}.${lakebaseConfig.schema}`);
+      return storageInstance;
+    } catch (error) {
+      console.error("Failed to initialize LakeBase storage, falling back to memory:", error);
+    }
+  }
+
+  console.log("Using in-memory storage");
+  storageInstance = new MemStorage();
+  return storageInstance;
+}
+
+export function getStorage(): IStorage {
+  if (!storageInstance) {
+    storageInstance = new MemStorage();
+  }
+  return storageInstance;
+}
+
 export const storage = new MemStorage();
