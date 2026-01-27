@@ -6,6 +6,8 @@ import type {
   Domain,
   Site,
   Config,
+  InsertDomain,
+  InsertEndpoint,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -18,12 +20,18 @@ export interface IStorage {
   
   getDomains(): Promise<Domain[]>;
   getDomain(id: string): Promise<Domain | undefined>;
+  createDomain(domain: InsertDomain): Promise<Domain>;
+  updateDomain(id: string, updates: Partial<InsertDomain>): Promise<Domain | undefined>;
+  deleteDomain(id: string): Promise<boolean>;
   
   getSites(): Promise<Site[]>;
   getSite(id: string): Promise<Site | undefined>;
   
   getEndpoints(domainId?: string): Promise<Endpoint[]>;
   getEndpoint(id: string): Promise<Endpoint | undefined>;
+  createEndpoint(endpoint: InsertEndpoint): Promise<Endpoint>;
+  updateEndpoint(id: string, updates: Partial<InsertEndpoint>): Promise<Endpoint | undefined>;
+  deleteEndpoint(id: string): Promise<boolean>;
   
   getConfig(): Promise<Config>;
   setConfig(config: Config): Promise<Config>;
@@ -333,6 +341,25 @@ export class MemStorage implements IStorage {
     return this.domains.get(id);
   }
 
+  async createDomain(domain: InsertDomain): Promise<Domain> {
+    const id = domain.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    const newDomain: Domain = { id, ...domain };
+    this.domains.set(id, newDomain);
+    return newDomain;
+  }
+
+  async updateDomain(id: string, updates: Partial<InsertDomain>): Promise<Domain | undefined> {
+    const domain = this.domains.get(id);
+    if (!domain) return undefined;
+    const updated = { ...domain, ...updates };
+    this.domains.set(id, updated);
+    return updated;
+  }
+
+  async deleteDomain(id: string): Promise<boolean> {
+    return this.domains.delete(id);
+  }
+
   async getSites(): Promise<Site[]> {
     return Array.from(this.sites.values());
   }
@@ -351,6 +378,25 @@ export class MemStorage implements IStorage {
 
   async getEndpoint(id: string): Promise<Endpoint | undefined> {
     return this.endpoints.get(id);
+  }
+
+  async createEndpoint(endpoint: InsertEndpoint): Promise<Endpoint> {
+    const id = endpoint.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    const newEndpoint: Endpoint = { id, ...endpoint };
+    this.endpoints.set(id, newEndpoint);
+    return newEndpoint;
+  }
+
+  async updateEndpoint(id: string, updates: Partial<InsertEndpoint>): Promise<Endpoint | undefined> {
+    const endpoint = this.endpoints.get(id);
+    if (!endpoint) return undefined;
+    const updated = { ...endpoint, ...updates };
+    this.endpoints.set(id, updated);
+    return updated;
+  }
+
+  async deleteEndpoint(id: string): Promise<boolean> {
+    return this.endpoints.delete(id);
   }
 
   async getConfig(): Promise<Config> {

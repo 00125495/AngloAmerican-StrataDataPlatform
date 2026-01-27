@@ -78,3 +78,9 @@ export type InsertMessage = z.infer<typeof insertMessageSchema>;
 
 export const insertConversationSchema = conversationSchema.omit({ id: true, messages: true, createdAt: true, updatedAt: true });
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
+
+export const insertDomainSchema = domainSchema.omit({ id: true });
+export type InsertDomain = z.infer<typeof insertDomainSchema>;
+
+export const insertEndpointSchema = endpointSchema.omit({ id: true });
+export type InsertEndpoint = z.infer<typeof insertEndpointSchema>;
