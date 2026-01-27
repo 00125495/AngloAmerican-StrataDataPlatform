@@ -328,7 +328,21 @@ storage_instance: Optional[IStorage] = None
 async def initialize_storage() -> IStorage:
     global storage_instance
     
-    # Try PostgreSQL first (Databricks Apps with PG* env vars)
+    # Try LakeBase SDK first (Databricks Apps with OAuth token management)
+    from .lakebase_sdk_storage import is_lakebase_configured, LakebaseSDKStorage
+    if is_lakebase_configured():
+        try:
+            lakebase_sdk_storage = LakebaseSDKStorage()
+            await lakebase_sdk_storage.initialize()
+            storage_instance = lakebase_sdk_storage
+            print("Using LakeBase SDK storage (Databricks with OAuth)")
+            await storage_instance.refresh_endpoints_from_databricks()
+            return storage_instance
+        except Exception as e:
+            print(f"Failed to initialize LakeBase SDK storage: {e}")
+            print("Falling back to other storage options")
+    
+    # Try simple PostgreSQL (if PGPASSWORD is available)
     from .postgres_storage import get_postgres_url, PostgresStorage
     postgres_url = get_postgres_url()
     if postgres_url:
@@ -336,14 +350,14 @@ async def initialize_storage() -> IStorage:
             postgres_storage = PostgresStorage(postgres_url)
             await postgres_storage.initialize()
             storage_instance = postgres_storage
-            print("Using PostgreSQL storage (Databricks)")
+            print("Using PostgreSQL storage")
             await storage_instance.refresh_endpoints_from_databricks()
             return storage_instance
         except Exception as e:
             print(f"Failed to initialize PostgreSQL storage: {e}")
             print("Falling back to other storage options")
     
-    # Try LakeBase (Databricks SQL warehouse)
+    # Try LakeBase SQL warehouse (legacy approach)
     from .lakebase_storage import create_lakebase_config, LakeBaseStorage
     lakebase_config = create_lakebase_config()
     if lakebase_config:
@@ -351,7 +365,7 @@ async def initialize_storage() -> IStorage:
             lakebase_storage = LakeBaseStorage(lakebase_config)
             await lakebase_storage.initialize()
             storage_instance = lakebase_storage
-            print("Using LakeBase storage (Databricks)")
+            print("Using LakeBase SQL warehouse storage")
         except Exception as e:
             print(f"Failed to initialize LakeBase storage: {e}")
             print("Falling back to in-memory storage")
