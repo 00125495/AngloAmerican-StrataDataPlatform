@@ -17,6 +17,15 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/sites", async (_req, res) => {
+    try {
+      const sites = await storage.getSites();
+      res.json(sites);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch sites" });
+    }
+  });
+
   app.get("/api/endpoints", async (req, res) => {
     try {
       const domainId = req.query.domainId as string | undefined;
@@ -102,10 +111,11 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid request", details: parseResult.error });
       }
 
-      const { message, conversationId, endpointId, domainId } = parseResult.data;
+      const { message, conversationId, endpointId, domainId, siteId } = parseResult.data;
 
       const endpoint = await storage.getEndpoint(endpointId);
       const domain = domainId ? await storage.getDomain(domainId) : await storage.getDomain("generic");
+      const site = siteId ? await storage.getSite(siteId) : await storage.getSite("all-sites");
       
       let conversation;
       if (conversationId) {
@@ -117,7 +127,8 @@ export async function registerRoutes(
         conversation = await storage.createConversation(
           endpointId,
           message.slice(0, 50) + (message.length > 50 ? "..." : ""),
-          domainId
+          domainId,
+          siteId
         );
       }
 
@@ -134,7 +145,10 @@ export async function registerRoutes(
 
       const databricksHost = process.env.DATABRICKS_HOST;
       const databricksToken = process.env.DATABRICKS_TOKEN;
-      const systemPrompt = domain?.systemPrompt || "You are a helpful AI assistant.";
+      const siteContext = site && site.id !== "all-sites" 
+        ? ` Focus on data and context specific to ${site.name} (${site.location}).`
+        : "";
+      const systemPrompt = (domain?.systemPrompt || "You are a helpful AI assistant.") + siteContext;
 
       let aiResponse: string;
       const endpointName = endpoint?.name || endpointId;
@@ -171,10 +185,10 @@ export async function registerRoutes(
                        "I received your message but couldn't generate a response.";
         } catch (apiError) {
           console.error("Databricks API error:", apiError);
-          aiResponse = generateMockResponse(message, endpointName, domain?.name || "General", conversationContext);
+          aiResponse = generateMockResponse(message, endpointName, domain?.name || "General", site?.name || "All Sites", conversationContext);
         }
       } else {
-        aiResponse = generateMockResponse(message, endpointName, domain?.name || "General", conversationContext);
+        aiResponse = generateMockResponse(message, endpointName, domain?.name || "General", site?.name || "All Sites", conversationContext);
       }
 
       const assistantMessage = await storage.addMessage(conversation.id, {
@@ -223,12 +237,14 @@ function generateMockResponse(
   message: string,
   endpointName: string,
   domainName: string,
+  siteName: string,
   context: Array<{ role: string; content: string }>
 ): string {
   const messageCount = context.length;
+  const siteInfo = siteName !== "All Sites" ? ` (focused on ${siteName})` : "";
   const contextInfo = messageCount > 0 
-    ? `\n\n*I have access to ${messageCount} previous messages in our conversation for context.*`
-    : "";
+    ? `\n\n*I have access to ${messageCount} previous messages in our conversation for context.${siteInfo}*`
+    : siteInfo ? `\n\n*${siteInfo.trim()}*` : "";
 
   const domainResponses: Record<string, string[]> = {
     "Mining Operations": [

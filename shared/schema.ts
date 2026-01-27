@@ -17,6 +17,7 @@ export const conversationSchema = z.object({
   messages: z.array(messageSchema),
   endpointId: z.string(),
   domainId: z.string().optional(),
+  siteId: z.string().optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });
@@ -30,6 +31,14 @@ export const domainSchema = z.object({
   icon: z.string().optional(),
 });
 export type Domain = z.infer<typeof domainSchema>;
+
+export const siteSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  location: z.string(),
+  type: z.string(),
+});
+export type Site = z.infer<typeof siteSchema>;
 
 export const endpointSchema = z.object({
   id: z.string(),
@@ -46,6 +55,7 @@ export const chatRequestSchema = z.object({
   conversationId: z.string().optional(),
   endpointId: z.string(),
   domainId: z.string().optional(),
+  siteId: z.string().optional(),
 });
 export type ChatRequest = z.infer<typeof chatRequestSchema>;
 
@@ -58,6 +68,7 @@ export type ChatResponse = z.infer<typeof chatResponseSchema>;
 export const configSchema = z.object({
   defaultEndpointId: z.string().optional(),
   defaultDomainId: z.string().optional(),
+  defaultSiteId: z.string().optional(),
   systemPrompt: z.string().optional(),
 });
 export type Config = z.infer<typeof configSchema>;

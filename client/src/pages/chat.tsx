@@ -7,18 +7,20 @@ import { ConversationSidebar } from "@/components/conversation-sidebar";
 import { ChatMessage, TypingIndicator } from "@/components/chat-message";
 import { ChatInput } from "@/components/chat-input";
 import { DomainSelector } from "@/components/domain-selector";
+import { SiteSelector } from "@/components/site-selector";
 import { EndpointSelector } from "@/components/endpoint-selector";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Conversation, Endpoint, Domain, Config } from "@shared/schema";
+import type { Conversation, Endpoint, Domain, Site, Config } from "@shared/schema";
 
 export default function Chat() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [selectedEndpoint, setSelectedEndpoint] = useState<Endpoint | null>(null);
   const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
+  const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -26,6 +28,10 @@ export default function Chat() {
 
   const { data: domains = [], isLoading: domainsLoading } = useQuery<Domain[]>({
     queryKey: ["/api/domains"],
+  });
+
+  const { data: sites = [], isLoading: sitesLoading } = useQuery<Site[]>({
+    queryKey: ["/api/sites"],
   });
 
   const { data: endpoints = [], isLoading: endpointsLoading } = useQuery<Endpoint[]>({
@@ -55,10 +61,21 @@ export default function Chat() {
 
   useEffect(() => {
     if (domains.length > 0 && !selectedDomain) {
-      const genericDomain = domains.find((d) => d.id === "generic");
-      setSelectedDomain(genericDomain || domains[0]);
+      const defaultDomain = config.defaultDomainId 
+        ? domains.find((d) => d.id === config.defaultDomainId)
+        : domains.find((d) => d.id === "generic");
+      setSelectedDomain(defaultDomain || domains[0]);
     }
-  }, [domains, selectedDomain]);
+  }, [domains, selectedDomain, config.defaultDomainId]);
+
+  useEffect(() => {
+    if (sites.length > 0 && !selectedSite) {
+      const defaultSite = config.defaultSiteId
+        ? sites.find((s) => s.id === config.defaultSiteId)
+        : sites.find((s) => s.id === "all-sites");
+      setSelectedSite(defaultSite || sites[0]);
+    }
+  }, [sites, selectedSite, config.defaultSiteId]);
 
   useEffect(() => {
     if (endpoints.length > 0 && !selectedEndpoint) {
@@ -107,6 +124,7 @@ export default function Chat() {
         conversationId: activeConversationId || undefined,
         endpointId: selectedEndpoint.id,
         domainId: selectedDomain?.id,
+        siteId: selectedSite?.id,
       });
       return response.json();
     },
@@ -151,9 +169,24 @@ export default function Chat() {
   const saveConfigMutation = useMutation({
     mutationFn: async (newConfig: Config) => {
       await apiRequest("POST", "/api/config", newConfig);
+      return newConfig;
     },
-    onSuccess: () => {
+    onSuccess: (newConfig) => {
       queryClient.invalidateQueries({ queryKey: ["/api/config"] });
+      
+      if (newConfig.defaultDomainId) {
+        const domain = domains.find(d => d.id === newConfig.defaultDomainId);
+        if (domain) setSelectedDomain(domain);
+      }
+      if (newConfig.defaultSiteId) {
+        const site = sites.find(s => s.id === newConfig.defaultSiteId);
+        if (site) setSelectedSite(site);
+      }
+      if (newConfig.defaultEndpointId) {
+        const endpoint = endpoints.find(e => e.id === newConfig.defaultEndpointId);
+        if (endpoint) setSelectedEndpoint(endpoint);
+      }
+      
       toast({
         title: "Settings saved",
         description: "Your configuration has been updated",
@@ -184,7 +217,7 @@ export default function Chat() {
     setSelectedEndpoint(null);
   }, []);
 
-  const isLoading = endpointsLoading || configLoading || domainsLoading;
+  const isLoading = endpointsLoading || configLoading || domainsLoading || sitesLoading;
 
   return (
     <>
@@ -200,12 +233,12 @@ export default function Chat() {
 
       <div className="flex flex-col flex-1 min-w-0">
         <header className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             {isLoading ? (
               <>
-                <Skeleton className="h-9 w-[180px]" />
-                <Skeleton className="h-9 w-[200px]" />
+                <Skeleton className="h-9 w-[160px]" />
+                <Skeleton className="h-9 w-[140px]" />
               </>
             ) : (
               <>
@@ -215,10 +248,10 @@ export default function Chat() {
                   onSelect={handleDomainChange}
                   disabled={sendMessageMutation.isPending}
                 />
-                <EndpointSelector
-                  endpoints={endpoints}
-                  selectedEndpoint={selectedEndpoint}
-                  onSelect={setSelectedEndpoint}
+                <SiteSelector
+                  sites={sites}
+                  selectedSite={selectedSite}
+                  onSelect={setSelectedSite}
                   disabled={sendMessageMutation.isPending}
                 />
               </>
@@ -265,7 +298,7 @@ export default function Chat() {
                   ? "Loading..."
                   : selectedEndpoint
                   ? `Message ${selectedDomain?.name || "AI Assistant"}...`
-                  : "Select a domain and model to start chatting..."
+                  : "Select a domain to start chatting..."
               }
             />
           </div>
@@ -277,6 +310,8 @@ export default function Chat() {
         onOpenChange={setSettingsOpen}
         config={config}
         endpoints={endpoints}
+        domains={domains}
+        sites={sites}
         onSave={(newConfig) => saveConfigMutation.mutate(newConfig)}
       />
     </>

@@ -4,19 +4,23 @@ import type {
   Message,
   Endpoint,
   Domain,
+  Site,
   Config,
 } from "@shared/schema";
 
 export interface IStorage {
   getConversations(): Promise<Conversation[]>;
   getConversation(id: string): Promise<Conversation | undefined>;
-  createConversation(endpointId: string, title: string, domainId?: string): Promise<Conversation>;
+  createConversation(endpointId: string, title: string, domainId?: string, siteId?: string): Promise<Conversation>;
   addMessage(conversationId: string, message: Omit<Message, "id">): Promise<Message>;
   updateConversation(id: string, updates: Partial<Conversation>): Promise<Conversation | undefined>;
   deleteConversation(id: string): Promise<boolean>;
   
   getDomains(): Promise<Domain[]>;
   getDomain(id: string): Promise<Domain | undefined>;
+  
+  getSites(): Promise<Site[]>;
+  getSite(id: string): Promise<Site | undefined>;
   
   getEndpoints(domainId?: string): Promise<Endpoint[]>;
   getEndpoint(id: string): Promise<Endpoint | undefined>;
@@ -29,17 +33,20 @@ export class MemStorage implements IStorage {
   private conversations: Map<string, Conversation>;
   private endpoints: Map<string, Endpoint>;
   private domains: Map<string, Domain>;
+  private sites: Map<string, Site>;
   private config: Config;
 
   constructor() {
     this.conversations = new Map();
     this.endpoints = new Map();
     this.domains = new Map();
+    this.sites = new Map();
     this.config = {
       systemPrompt: "You are a helpful AI assistant for Anglo American. Provide clear, accurate, and helpful responses based on the conversation context.",
     };
 
     this.initializeDefaultDomains();
+    this.initializeDefaultSites();
     this.initializeDefaultEndpoints();
   }
 
@@ -98,6 +105,81 @@ export class MemStorage implements IStorage {
 
     defaultDomains.forEach((domain) => {
       this.domains.set(domain.id, domain);
+    });
+  }
+
+  private initializeDefaultSites() {
+    const defaultSites: Site[] = [
+      {
+        id: "all-sites",
+        name: "All Sites",
+        location: "Global",
+        type: "global",
+      },
+      {
+        id: "kumba",
+        name: "Kumba Iron Ore",
+        location: "South Africa",
+        type: "iron-ore",
+      },
+      {
+        id: "sishen",
+        name: "Sishen Mine",
+        location: "Northern Cape, South Africa",
+        type: "iron-ore",
+      },
+      {
+        id: "kolomela",
+        name: "Kolomela Mine",
+        location: "Northern Cape, South Africa",
+        type: "iron-ore",
+      },
+      {
+        id: "mogalakwena",
+        name: "Mogalakwena PGMs",
+        location: "Limpopo, South Africa",
+        type: "platinum",
+      },
+      {
+        id: "amandelbult",
+        name: "Amandelbult Complex",
+        location: "Limpopo, South Africa",
+        type: "platinum",
+      },
+      {
+        id: "minas-rio",
+        name: "Minas-Rio",
+        location: "Brazil",
+        type: "iron-ore",
+      },
+      {
+        id: "quellaveco",
+        name: "Quellaveco",
+        location: "Peru",
+        type: "copper",
+      },
+      {
+        id: "los-bronces",
+        name: "Los Bronces",
+        location: "Chile",
+        type: "copper",
+      },
+      {
+        id: "moranbah",
+        name: "Moranbah North",
+        location: "Queensland, Australia",
+        type: "metallurgical-coal",
+      },
+      {
+        id: "grosvenor",
+        name: "Grosvenor",
+        location: "Queensland, Australia",
+        type: "metallurgical-coal",
+      },
+    ];
+
+    defaultSites.forEach((site) => {
+      this.sites.set(site.id, site);
     });
   }
 
@@ -187,7 +269,7 @@ export class MemStorage implements IStorage {
     return this.conversations.get(id);
   }
 
-  async createConversation(endpointId: string, title: string, domainId?: string): Promise<Conversation> {
+  async createConversation(endpointId: string, title: string, domainId?: string, siteId?: string): Promise<Conversation> {
     const id = randomUUID();
     const now = Date.now();
     const conversation: Conversation = {
@@ -196,6 +278,7 @@ export class MemStorage implements IStorage {
       messages: [],
       endpointId,
       domainId,
+      siteId,
       createdAt: now,
       updatedAt: now,
     };
@@ -248,6 +331,14 @@ export class MemStorage implements IStorage {
 
   async getDomain(id: string): Promise<Domain | undefined> {
     return this.domains.get(id);
+  }
+
+  async getSites(): Promise<Site[]> {
+    return Array.from(this.sites.values());
+  }
+
+  async getSite(id: string): Promise<Site | undefined> {
+    return this.sites.get(id);
   }
 
   async getEndpoints(domainId?: string): Promise<Endpoint[]> {
