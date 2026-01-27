@@ -6,7 +6,11 @@ from .models import Endpoint, EndpointType
 
 class DatabricksClient:
     def __init__(self):
-        self.host = os.getenv("DATABRICKS_HOST", "").rstrip("/")
+        host = os.getenv("DATABRICKS_HOST", "").rstrip("/")
+        # Ensure host has https:// prefix
+        if host and not host.startswith("http"):
+            host = f"https://{host}"
+        self.host = host
         self.client_id = os.getenv("DATABRICKS_CLIENT_ID")
         self.client_secret = os.getenv("DATABRICKS_CLIENT_SECRET")
         self.token = os.getenv("DATABRICKS_TOKEN")
