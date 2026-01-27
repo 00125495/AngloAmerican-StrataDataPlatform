@@ -342,7 +342,13 @@ export class MemStorage implements IStorage {
   }
 
   async createDomain(domain: InsertDomain): Promise<Domain> {
-    const id = domain.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    let baseId = domain.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    let id = baseId;
+    let counter = 1;
+    while (this.domains.has(id)) {
+      id = `${baseId}-${counter}`;
+      counter++;
+    }
     const newDomain: Domain = { id, ...domain };
     this.domains.set(id, newDomain);
     return newDomain;
@@ -381,7 +387,13 @@ export class MemStorage implements IStorage {
   }
 
   async createEndpoint(endpoint: InsertEndpoint): Promise<Endpoint> {
-    const id = endpoint.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    let baseId = endpoint.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    let id = baseId;
+    let counter = 1;
+    while (this.endpoints.has(id)) {
+      id = `${baseId}-${counter}`;
+      counter++;
+    }
     const newEndpoint: Endpoint = { id, ...endpoint };
     this.endpoints.set(id, newEndpoint);
     return newEndpoint;

@@ -73,6 +73,9 @@ export async function registerRoutes(
       const databricksHost = process.env.DATABRICKS_HOST;
       const databricksToken = process.env.DATABRICKS_TOKEN;
 
+      const storageEndpoints = await storage.getEndpoints(domainId);
+      let databricksEndpoints: any[] = [];
+
       if (databricksHost && databricksToken) {
         try {
           const response = await fetch(
@@ -86,27 +89,25 @@ export async function registerRoutes(
 
           if (response.ok) {
             const data = await response.json();
-            const endpoints = (data.endpoints || []).map((ep: any) => ({
-              id: ep.name,
+            databricksEndpoints = (data.endpoints || []).map((ep: any) => ({
+              id: `databricks-${ep.name}`,
               name: ep.name,
               description: ep.config?.served_entities?.[0]?.entity_name || "Databricks serving endpoint",
               type: ep.config?.served_entities?.[0]?.entity_name?.includes("agent") ? "agent" : 
                     ep.config?.served_entities?.[0]?.foundation_model_name ? "foundation" : "custom",
               isDefault: false,
             }));
-            
-            if (endpoints.length > 0) {
-              endpoints[0].isDefault = true;
-              return res.json(endpoints);
-            }
           }
         } catch (apiError) {
-          console.log("Could not fetch Databricks endpoints, using defaults:", apiError);
+          console.log("Could not fetch Databricks endpoints:", apiError);
         }
       }
 
-      const endpoints = await storage.getEndpoints(domainId);
-      res.json(endpoints);
+      const allEndpoints = [...storageEndpoints, ...databricksEndpoints];
+      if (allEndpoints.length > 0 && !allEndpoints.some(e => e.isDefault)) {
+        allEndpoints[0].isDefault = true;
+      }
+      res.json(allEndpoints);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch endpoints" });
     }
@@ -234,6 +235,9 @@ export async function registerRoutes(
 
       let aiResponse: string;
       const endpointName = endpoint?.name || endpointId;
+      const databricksEndpointName = endpointId.startsWith("databricks-") 
+        ? endpointId.slice("databricks-".length) 
+        : endpointId;
 
       if (databricksHost && databricksToken) {
         try {
@@ -246,7 +250,7 @@ export async function registerRoutes(
           };
 
           const response = await fetch(
-            `${databricksHost}/serving-endpoints/${endpointId}/invocations`,
+            `${databricksHost}/serving-endpoints/${databricksEndpointName}/invocations`,
             {
               method: "POST",
               headers: {
