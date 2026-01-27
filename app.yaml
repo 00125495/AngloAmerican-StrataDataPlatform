@@ -9,9 +9,3 @@ command:
 env:
   - name: NODE_ENV
     value: production
-  - name: DATABRICKS_HOST
-    valueFrom: context
-  - name: DATABRICKS_CLIENT_ID
-    valueFrom: context
-  - name: DATABRICKS_CLIENT_SECRET
-    valueFrom: context
