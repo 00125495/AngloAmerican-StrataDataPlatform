@@ -5,7 +5,8 @@ export function AngloAmericanLogo({ className = "w-10 h-10" }: { className?: str
     <img 
       src={angloLogo} 
       alt="Anglo American" 
-      className={className}
+      className={`${className} object-contain rounded-lg`}
+      style={{ mixBlendMode: 'multiply' }}
     />
   );
 }
@@ -13,7 +14,13 @@ export function AngloAmericanLogo({ className = "w-10 h-10" }: { className?: str
 export function AngloStrataLogo({ className = "" }: { className?: string }) {
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      <AngloAmericanLogo className="w-10 h-10" />
+      <div className="w-10 h-10 bg-white rounded-lg p-1 flex items-center justify-center">
+        <img 
+          src={angloLogo} 
+          alt="Anglo American" 
+          className="w-full h-full object-contain"
+        />
+      </div>
       <div className="flex flex-col">
         <span className="text-lg font-bold leading-tight tracking-tight">Anglo Strata</span>
         <span className="text-[10px] uppercase tracking-widest opacity-70 leading-tight">Mining Intelligence</span>
@@ -23,7 +30,15 @@ export function AngloStrataLogo({ className = "" }: { className?: string }) {
 }
 
 export function AngloStrataIcon({ className = "h-8 w-8" }: { className?: string }) {
-  return <AngloAmericanLogo className={className} />;
+  return (
+    <div className={`${className} bg-white rounded-lg p-1 flex items-center justify-center`}>
+      <img 
+        src={angloLogo} 
+        alt="Anglo American" 
+        className="w-full h-full object-contain"
+      />
+    </div>
+  );
 }
 
 export function DatabricksLogo({ className = "h-6 w-6" }: { className?: string }) {
