@@ -194,31 +194,32 @@ class LakebaseSDKStorage(IStorage):
 
     async def _create_tables(self):
         """Create database tables if they don't exist, or verify they exist."""
+        # First, check if tables exist in a separate connection
+        tables_exist = False
         try:
-            async with self.engine.begin() as conn:
-                # Try to check if tables exist by querying them directly
-                # This avoids needing permissions on information_schema
-                tables_exist = True
+            async with self.engine.connect() as conn:
                 try:
                     await conn.execute(text("SELECT 1 FROM conversations LIMIT 1"))
                     await conn.execute(text("SELECT 1 FROM messages LIMIT 1"))
                     print("[LAKEBASE] Tables already exist, skipping creation")
                     logger.info("Database tables already exist")
-                    return
+                    tables_exist = True
                 except Exception as check_error:
                     error_str = str(check_error).lower()
                     if "does not exist" in error_str or "relation" in error_str:
-                        tables_exist = False
                         print("[LAKEBASE] Tables do not exist, will attempt creation")
                     else:
-                        # Some other error - tables might exist
                         print(f"[LAKEBASE] Could not check tables: {check_error}")
-                        tables_exist = False
-                
-                if tables_exist:
-                    return
-                
-                # Try to create tables if they don't exist
+                    await conn.rollback()
+        except Exception as e:
+            print(f"[LAKEBASE] Error checking tables: {e}")
+        
+        if tables_exist:
+            return
+        
+        # Try to create tables in a fresh transaction
+        try:
+            async with self.engine.begin() as conn:
                 print("[LAKEBASE] Creating database tables...")
                 await conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS conversations (
