@@ -2,6 +2,7 @@ import { User, Bot, Copy, Check } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeSanitize from "rehype-sanitize";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { Message } from "@shared/schema";
@@ -55,6 +56,7 @@ export function ChatMessage({ message, isStreaming = false }: ChatMessageProps) 
           ) : (
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeSanitize]}
               components={{
                 table: ({ children }) => (
                   <div className="overflow-x-auto my-4">
@@ -115,13 +117,13 @@ export function ChatMessage({ message, isStreaming = false }: ChatMessageProps) 
                   <h3 className="text-base font-semibold mt-4 mb-2">{children}</h3>
                 ),
                 blockquote: ({ children }) => (
-                  <blockquote className="border-l-4 border-primary pl-4 italic my-4 text-muted-foreground">
+                  <blockquote className="border-l-4 border-muted-foreground pl-4 italic my-4 text-muted-foreground">
                     {children}
                   </blockquote>
                 ),
                 hr: () => <hr className="my-6 border-border" />,
                 a: ({ href, children }) => (
-                  <a href={href} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+                  <a href={href} className="underline hover:opacity-80" target="_blank" rel="noopener noreferrer">
                     {children}
                   </a>
                 ),
