@@ -1,5 +1,7 @@
 import { User, Bot, Copy, Check } from "lucide-react";
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { Message } from "@shared/schema";
@@ -45,13 +47,92 @@ export function ChatMessage({ message, isStreaming = false }: ChatMessageProps) 
           </span>
         </div>
 
-        <div className="prose prose-sm dark:prose-invert max-w-none">
-          <p className="whitespace-pre-wrap leading-relaxed">
-            {message.content}
-            {isStreaming && (
-              <span className="inline-block w-2 h-4 ml-1 bg-primary animate-pulse rounded-sm" />
-            )}
-          </p>
+        <div className="prose prose-sm dark:prose-invert max-w-none prose-table:border-collapse prose-table:border prose-table:border-border prose-th:border prose-th:border-border prose-th:p-2 prose-th:bg-muted prose-td:border prose-td:border-border prose-td:p-2 prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
+          {isUser ? (
+            <p className="whitespace-pre-wrap leading-relaxed">
+              {message.content}
+            </p>
+          ) : (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                table: ({ children }) => (
+                  <div className="overflow-x-auto my-4">
+                    <table className="min-w-full border-collapse border border-border rounded-md">
+                      {children}
+                    </table>
+                  </div>
+                ),
+                thead: ({ children }) => (
+                  <thead className="bg-muted">{children}</thead>
+                ),
+                th: ({ children }) => (
+                  <th className="border border-border px-3 py-2 text-left font-semibold text-sm">
+                    {children}
+                  </th>
+                ),
+                td: ({ children }) => (
+                  <td className="border border-border px-3 py-2 text-sm">
+                    {children}
+                  </td>
+                ),
+                code: ({ className, children, ...props }) => {
+                  const isInline = !className;
+                  return isInline ? (
+                    <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+                      {children}
+                    </code>
+                  ) : (
+                    <code className={`${className} block bg-muted p-3 rounded-md text-sm font-mono overflow-x-auto`} {...props}>
+                      {children}
+                    </code>
+                  );
+                },
+                pre: ({ children }) => (
+                  <pre className="bg-muted p-4 rounded-md overflow-x-auto my-4">
+                    {children}
+                  </pre>
+                ),
+                ul: ({ children }) => (
+                  <ul className="list-disc pl-6 space-y-1">{children}</ul>
+                ),
+                ol: ({ children }) => (
+                  <ol className="list-decimal pl-6 space-y-1">{children}</ol>
+                ),
+                li: ({ children }) => (
+                  <li className="leading-relaxed">{children}</li>
+                ),
+                p: ({ children }) => (
+                  <p className="leading-relaxed my-2">{children}</p>
+                ),
+                h1: ({ children }) => (
+                  <h1 className="text-xl font-bold mt-6 mb-3">{children}</h1>
+                ),
+                h2: ({ children }) => (
+                  <h2 className="text-lg font-bold mt-5 mb-2">{children}</h2>
+                ),
+                h3: ({ children }) => (
+                  <h3 className="text-base font-semibold mt-4 mb-2">{children}</h3>
+                ),
+                blockquote: ({ children }) => (
+                  <blockquote className="border-l-4 border-primary pl-4 italic my-4 text-muted-foreground">
+                    {children}
+                  </blockquote>
+                ),
+                hr: () => <hr className="my-6 border-border" />,
+                a: ({ href, children }) => (
+                  <a href={href} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+                    {children}
+                  </a>
+                ),
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+          )}
+          {isStreaming && (
+            <span className="inline-block w-2 h-4 ml-1 bg-primary animate-pulse rounded-sm" />
+          )}
         </div>
 
         {!isUser && !isStreaming && (
